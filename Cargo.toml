@@ -1,0 +1,29 @@
+[package]
+name = "YIT-GPA-Calculator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# 基础依赖
+axum = "0.8.4"
+tokio = {version = "1.46.1", features = ["full"]}  # 异步运行时
+tera = "1.20.0"   # 模板引擎
+
+# 网络解析
+reqwest = {version = "0.12.22", features = ["json", "cookies", "rustls-tls"]}    # HTTP 客户端
+scraper = "0.23.1"    # HTML 解析
+base64 = "0.22.1"   # Base64 编码
+
+# 数据序列化与反序列化
+serde = {version = "1.0.219", features = ["derive"]}
+
+# 高精度小数
+rust_decimal = {version = "1.30.0", features = ["serde", "std"]}
+rust_decimal_macros = "1.30.0"
+
+# 其他工具
+webbrowser = "1.0.5"   # 自动打开浏览器
+anyhow = "1.0.98"   # 简化错误处理
+thiserror = "2.0.12"    # 自定义错误
+fake_user_agent = "0.2.2"   # 随机 UA
+lazy_static = "1.5.0"   # 将静态变量延时初始化

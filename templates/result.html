@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>绩点</title>
+    <style>
+        .section-title {
+            text-align: center;
+            padding: 20px;
+        }
+
+        #result-table {
+            margin: 0 auto; /* 居中 */
+            width: 80%; /* 控制表格宽度 */
+            border-collapse: collapse;
+        }
+
+        #result-table th {
+            background-color: #007BFF;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+        }
+
+        #result-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        #result-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        #result-table tr:hover {
+            background-color: #cce5ff;
+        }
+    </style>
+</head>
+<body>
+
+<div>
+    <div class="section-title">
+        <h2>平均绩点</h2>
+        <h2 style="color: red;">{{ gpa }}</h2>
+        <h2>不计入绩点计算的课程:</h2>
+        <p>公选课、体育、通识教育选修课、职业生涯规划与就业指导、大学生安全教育、大学生心理健康教育、</p>
+        <p>形势与政策、军事理论、军事训练、创新创业教育、劳动教育、专业基础认知、入学教育、毕业教育、</p>
+        <p>社会实践、社会调研、综合实训、综合设计与展示、职场体验、</p>
+        <p>实习（如金工实习，认知实习, 电工电子实习，毕业实习等）、见习（如教育见习，专业见习等）、</p>
+        <p>名师大讲堂、领导力、系列讲座</p>
+        <h3 style="color: red;">仅供参考，实际情况以教务处为准</h3>
+    </div>
+
+    <div>
+        <table id="result-table">
+            <tr>
+                <th>课程</th>
+                <th>学分</th>
+                <th>成绩</th>
+                <th>绩点</th>
+                <th>加权绩点</th>
+            </tr>
+            {% for course in courses %}
+            <tr>
+                <td>{{ course.name }}</td>
+                <td>{{ course.credit }}</td>
+                <td>{{ course.score }}</td>
+                <td>{{ course.grade }}</td>
+                <td>{{ course.credit_gpa }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+
+</body>
+</html>
