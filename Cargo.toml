@@ -1,5 +1,5 @@
 [package]
-name = "YIT-GPA-Calculator"
+name = "YIT-GPA-Calculator-Rust"
 version = "0.2.0"
 edition = "2024"
 
@@ -9,6 +9,10 @@ opt-level = "s"
 lto = true
 codegen-units = 1
 strip = true
+
+[[bin]]
+name = "yit-gpa-tool"
+path = "src/main.rs"
 
 [dependencies]
 # 基础依赖
