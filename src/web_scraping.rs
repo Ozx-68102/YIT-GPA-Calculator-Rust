@@ -1,6 +1,6 @@
 use crate::{
     models::{Course, WebScrapingError},
-    utils::{encode_inp, round_2decimal, score_trans_grade}
+    utils::{current_time, encode_inp, round_2decimal, score_trans_grade}
 };
 use anyhow::Result;
 use fake_user_agent::get_rua;
@@ -28,7 +28,7 @@ impl AAOWebsite {
     // 创建爬虫实例
     pub fn new() -> Result<Self> {
         #[cfg(debug_assertions)]
-        println!("正在初始化客户端实例");
+        println!("[{}]正在初始化客户端实例", current_time());
 
         // 创建客户端实例, `?`表示失败就返回错误, 类似隔壁的 raise
         // 需要启动 cookie 储存
@@ -39,7 +39,7 @@ impl AAOWebsite {
 
         // cfg(debug_assertions) 表示下方紧贴着的内容只在 dev 模式下出现
         #[cfg(debug_assertions)]
-        println!("客户端实例初始化完成：{:?}", client);
+        println!("[{}]客户端实例初始化完成：{:?}", current_time(), client);
 
         // 初始化请求头
         let mut init_headers = HeaderMap::new();
@@ -57,7 +57,7 @@ impl AAOWebsite {
         );
 
         #[cfg(debug_assertions)]
-        println!("请求头设置完成：{:?}", init_headers);
+        println!("[{}]请求头设置完成：{:?}", current_time(), init_headers);
 
         // 用 Ok 包裹结构体则表示成功
         Ok(Self {
@@ -71,7 +71,7 @@ impl AAOWebsite {
     // self 前面要加 mut 因为需要更新请求头 headers
     pub async fn init(&mut self) -> Result<(), WebScrapingError> {
         #[cfg(debug_assertions)]
-        println!("尝试访问：{}", self.base_url);
+        println!("[{}]尝试访问：{}", current_time(), self.base_url);
 
         // await 表示等待请求完成, 出错会转换成自定义错误类型
         let response = self.client.get(&self.base_url)
@@ -86,7 +86,7 @@ impl AAOWebsite {
         }
 
         #[cfg(debug_assertions)]
-        println!("访问 {} 成功！ HTTP {}。将获取 cookie", self.base_url, response.status());
+        println!("[{}]访问 {} 成功！ HTTP {}。将获取 cookie", current_time(), self.base_url, response.status());
 
         // 获取 cookie, 找不到 cookie 也会报错并终止
         // response.cookies() 返回的是迭代器, 一旦迭代器被遍历, 它就被消耗掉了(consumed & moved)
@@ -95,7 +95,7 @@ impl AAOWebsite {
         if cookies.is_empty() { return Err(WebScrapingError::CookieInvalid) }
 
         #[cfg(debug_assertions)]
-        println!("获取成功。cookies: {:?}", cookies);
+        println!("[{}]获取成功。cookies: {:?}", current_time(), cookies);
 
         // 更新 Referer, Cookie 会由 reqwest 自动管理
         self.headers.insert(
@@ -104,7 +104,7 @@ impl AAOWebsite {
         );
 
         #[cfg(debug_assertions)]
-        println!("请求头已更新：{:?}", self.headers);
+        println!("[{}]请求头已更新：{:?}", current_time(), self.headers);
 
         Ok(())
     }
@@ -114,19 +114,19 @@ impl AAOWebsite {
     // 它们的生命周期会随着其真正的拥有者(owner)被清理而移除, 在这之前它们一直存在
     pub async fn login(&mut self, username: &str, password: &str) -> Result<(), WebScrapingError> {
         #[cfg(debug_assertions)]
-        println!("用户输入了登录信息[账：{}，密：{}]，将对其进行编码", username, password);
+        println!("[{}]用户输入了登录信息[账：{}，密：{}]，将对其进行编码", current_time(), username, password);
 
         // b64 对账号密码进行编码
         let encoded = format!("{}%%%{}", encode_inp(username), encode_inp(password));
 
         #[cfg(debug_assertions)]
-        println!("编码后结果：{}", encoded);
+        println!("[{}]编码后结果：{}", current_time(), encoded);
 
         // 提交表单数据并登录
         let login_url = format!("{}/xk/LoginToXk", self.base_url);
 
         #[cfg(debug_assertions)]
-        println!("现在开始提交表单数据并尝试登录，目标 URL 为 {}", login_url);
+        println!("[{}]现在开始提交表单数据并尝试登录，目标 URL 为 {}", current_time(), login_url);
 
         let form_data = [("encoded", &encoded)];
         let response = self.client.post(&login_url)
@@ -152,7 +152,7 @@ impl AAOWebsite {
         }
 
         #[cfg(debug_assertions)]
-        println!("登录成功！ HTTP {}", status_code);
+        println!("[{}]登录成功！ HTTP {}", current_time(), status_code);
 
         self.headers.insert(
             "Referer",
@@ -166,7 +166,7 @@ impl AAOWebsite {
         );
 
         #[cfg(debug_assertions)]
-        println!("请求头已更新：{:?}", self.headers);
+        println!("[{}]请求头已更新：{:?}", current_time(), self.headers);
 
         Ok(())
     }
@@ -177,7 +177,7 @@ impl AAOWebsite {
         let grades_url = format!("{}/kscj/cjcx_list", self.base_url);
 
         #[cfg(debug_assertions)]
-        println!("开始访问成绩页面：{}", grades_url);
+        println!("[{}]开始访问成绩页面：{}", current_time(), grades_url);
 
         let form_data = [("kksj", ""), ("kcxz", ""), ("kcmc", ""), ("xsfs", "all")];
         let response = self.client.post(&grades_url).form(&form_data).send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
@@ -189,7 +189,7 @@ impl AAOWebsite {
         }
 
         #[cfg(debug_assertions)]
-        println!("访问成功！ HTTP {}。将获取并解析成绩单", status_code);
+        println!("[{}]访问成功！ HTTP {}。将获取并解析成绩单", current_time(), status_code);
 
         // 获取响应文本并解析
         let html_content = response.text().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
@@ -211,7 +211,7 @@ impl AAOWebsite {
         let td_selector = Selector::parse("td").map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
 
         #[cfg(debug_assertions)]
-        println!("解析完成，将收集成绩数据");
+        println!("[{}]解析完成，将收集成绩数据", current_time());
 
         // 创建[可变]哈希表, 只有 let 后面带 mut 关键字, 变量内容才可被改变, 或者说被重新赋值
         // 但作为静态强类型语言, 不论内容如何改变, 数据类型都不可变
@@ -262,27 +262,27 @@ impl AAOWebsite {
         }
 
         #[cfg(debug_assertions)]
-        println!("成绩数据收集完成，如下：\n{:?}", courses_record);
+        println!("[{}]成绩数据收集完成，如下：\n{:?}", current_time(), courses_record);
 
         // 将值转为向量便于后续处理
         let course_list: Vec<_> = courses_record.into_values().collect();
 
         #[cfg(debug_assertions)]
-        println!("已转换为向量，将开始计算总学分和加权绩点。");
+        println!("[{}]已转换为向量，将开始计算总学分和加权绩点。", current_time());
 
         // 计算总学分和加权绩点
         let total_credits: Decimal = course_list.iter().map(|c| c.credit).sum();
         let total_cg: Decimal = course_list.iter().map(|c| c.credit_gpa).sum();
 
         #[cfg(debug_assertions)]
-        println!("计算得出总学分 = {}，总加权绩点 = {}", total_credits, total_cg);
+        println!("[{}]计算得出总学分 = {}，总加权绩点 = {}", current_time(), total_credits, total_cg);
 
         // 计算总绩点(GPA), 避免除以0引发错误
         let final_gpa = if total_credits > Decimal::ZERO { round_2decimal(total_cg / total_credits)}
         else { Decimal::ZERO };
 
         #[cfg(debug_assertions)]
-        println!("GPA = {}", final_gpa);
+        println!("[{}]GPA = {}", current_time(), final_gpa);
 
         // 返回课程列表和GPA
         Ok((course_list, final_gpa))

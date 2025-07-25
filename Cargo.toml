@@ -20,6 +20,7 @@ axum = "0.8.4"
 tokio = {version = "1.46.1", features = ["full"]}  # 异步运行时
 tera = "1.20.0"   # 模板引擎
 rust-embed = "8.7.2"    # 打包 exe
+chrono = "0.4.41"   # 时间戳
 
 # 网络解析
 reqwest = {version = "0.12.22", features = ["json", "cookies", "rustls-tls"]}    # HTTP 客户端

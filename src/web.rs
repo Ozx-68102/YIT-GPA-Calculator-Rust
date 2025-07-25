@@ -4,13 +4,14 @@ use axum::{
     routing::{get, post},   // 路由方法: get 处理 GET 请求, post 处理 POST 请求
     Router  // 路由管理器, 类似隔壁的 Flask app.py
 };
-use serde::Deserialize;
 // 反序列化解析表单数据, 类似隔壁的 request.form
-use tera::Tera;
+use serde::Deserialize;
 // 模板引擎, 类似 Jinja2
+use tera::Tera;
 
 use crate::{
     models::WebError,
+    utils::current_time,
     web_scraping::AAOWebsite
 };
 
@@ -32,13 +33,13 @@ pub fn create_router(tera: Tera) -> Router {
 // 登录页面
 pub async fn login_page(State(tera): State<Tera>) -> Result<Html<String>, WebError> {
     #[cfg(debug_assertions)]
-    println!("开始渲染登录界面");
+    println!("[{}]开始渲染登录界面", current_time());
 
     let context = tera::Context::new();
     let html = tera.render("login.html", &context).map_err(|e| WebError::TemplateError(e.to_string()))?;
 
     #[cfg(debug_assertions)]
-    println!("登录界面渲染成功");
+    println!("[{}]登录界面渲染成功", current_time());
 
     Ok(Html(html))
 }
@@ -66,7 +67,7 @@ pub async fn handle_score(State(tera): State<Tera>, Form(form): Form<LoginForm>)
 // 内层函数用于 GPA 查询处理
 async fn inner_handle_score(State(tera): State<Tera>, Form(form): Form<LoginForm>) -> Result<Html<String>, WebError> {
     #[cfg(debug_assertions)]
-    println!("准备初始化网页抓取爬虫与会话(Session)");
+    println!("[{}]准备初始化网页抓取爬虫与会话(Session)", current_time());
     // 初始化爬虫
     // 这里用 mut 的原因是 headers 的变动
     let mut scraper = AAOWebsite::new().map_err(|e| WebError::InternalError(e.to_string()))?;
@@ -75,19 +76,19 @@ async fn inner_handle_score(State(tera): State<Tera>, Form(form): Form<LoginForm
     scraper.init().await?;
 
     #[cfg(debug_assertions)]
-    println!("即将执行登录操作");
+    println!("[{}]即将执行登录操作", current_time());
 
     // 用表单中的账号密码登录
     scraper.login(&form.account, &form.password).await?;
 
     #[cfg(debug_assertions)]
-    println!("登录操作完成，将获取课程数据与GPA");
+    println!("[{}]登录操作完成，将获取课程数据与GPA", current_time());
 
     // 获取课程成绩和 GPA
     let (courses, gpa) = scraper.get_grades().await?;
 
     #[cfg(debug_assertions)]
-    println!("开始渲染 GPA 页面");
+    println!("[{}]开始渲染 GPA 页面", current_time());
 
     // 渲染结果页面
     let mut context = tera::Context::new();
@@ -96,7 +97,7 @@ async fn inner_handle_score(State(tera): State<Tera>, Form(form): Form<LoginForm
     let html = tera.render("result.html", &context).map_err(|e| WebError::TemplateError(e.to_string()))?;
 
     #[cfg(debug_assertions)]
-    println!("渲染 GPA 界面成功");
+    println!("[{}]渲染 GPA 界面成功", current_time());
 
     // 成功则返回网页内容
     Ok(Html(html))

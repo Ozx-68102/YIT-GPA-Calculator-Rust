@@ -4,6 +4,7 @@ use rust_embed::RustEmbed;
 use std::net::SocketAddr;
 use tera::Tera;
 use tokio::net::TcpListener;
+use utils::current_time;
 use webbrowser;
 
 mod models;
@@ -33,26 +34,26 @@ async fn main() -> Result<()> {
 
             // 将 HTML 模板添加到 Tera 实例
             // 这里的 content 已经是借用的形式了(&str), 因此可以不需要借用符号(&)
-            tera.add_raw_template(&file_path, content).with_context(|| format!("导入嵌入文件失败: {}", file_path))?;
+            tera.add_raw_template(&file_path, content).with_context(|| format!("[{}]导入嵌入文件失败: {}", current_time(), file_path))?;
         }
     }
 
     // 构建 Tera 的继承链
-    tera.build_inheritance_chains().context("构建Tera继承链失败.")?;
+    tera.build_inheritance_chains().context(format!("[{}]构建Tera继承链失败.", current_time()))?;
 
     // 创建路由
     let app = web::create_router(tera);
 
     // 绑定地址到 TCP 监听器
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
-    let listener = TcpListener::bind(addr).await.with_context(|| format!("无法绑定到地址 {}", addr))?;
-    println!("服务器运行于 http://{}", addr);
+    let listener = TcpListener::bind(addr).await.with_context(|| format!("[{}]无法绑定到地址 {}", current_time(), addr))?;
+    println!("[{}]服务器运行于 http://{}", current_time(), addr);
 
     // 自动打开浏览器
     let _ = webbrowser::open(&format!("http://{}", addr));
 
     // 监听器启动服务
-    serve(listener, app.into_make_service()).await.with_context(|| "服务器启动失败")?;
+    serve(listener, app.into_make_service()).await.with_context(|| format!("[{}]服务器启动失败", current_time()))?;
 
     Ok(())
 }

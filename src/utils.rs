@@ -1,6 +1,7 @@
 // 小工具库
 use base64::Engine as _;
-use rust_decimal::{Decimal};
+use chrono::Local;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 // b64编码
@@ -55,4 +56,9 @@ pub fn score_trans_grade(score: &str) -> Option<Decimal> {
 // 保留小数点后2位
 pub fn round_2decimal(d: Decimal) -> Decimal {
     d.round_dp(2)
+}
+
+// 提供当前时间
+pub fn current_time() -> String {
+    Local::now().format("%Y-%m-%d %H:%M:%S%.6f").to_string()
 }
