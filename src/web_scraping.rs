@@ -1,15 +1,15 @@
-use anyhow::Result;
-use reqwest::{Client, header::HeaderMap};
-use scraper::{Html, Selector};
-use rust_decimal::Decimal;
-use std::collections::HashMap;
-use fake_user_agent::get_rua;
-use lazy_static::lazy_static;
-use reqwest::header::HeaderValue;
 use crate::{
     models::{Course, WebScrapingError},
     utils::{encode_inp, round_2decimal, score_trans_grade}
 };
+use anyhow::Result;
+use fake_user_agent::get_rua;
+use lazy_static::lazy_static;
+use reqwest::header::HeaderValue;
+use reqwest::{cookie::Cookie, header::HeaderMap, Client};
+use rust_decimal::Decimal;
+use scraper::{Html, Selector};
+use std::collections::HashMap;
 
 // 每次程序启动都随机加载一个 UA
 lazy_static! {
@@ -27,12 +27,19 @@ pub struct AAOWebsite {
 impl AAOWebsite {
     // 创建爬虫实例
     pub fn new() -> Result<Self> {
+        #[cfg(debug_assertions)]
+        println!("正在初始化客户端实例");
+
         // 创建客户端实例, `?`表示失败就返回错误, 类似隔壁的 raise
         // 需要启动 cookie 储存
         let client = Client::builder()
             .user_agent(*USER_AGENT)    // 设置 UA
             .cookie_store(true) // 自动处理 Cookie
             .build()?;
+
+        // cfg(debug_assertions) 表示下方紧贴着的内容只在 dev 模式下出现
+        #[cfg(debug_assertions)]
+        println!("客户端实例初始化完成：{:?}", client);
 
         // 初始化请求头
         let mut init_headers = HeaderMap::new();
@@ -49,6 +56,9 @@ impl AAOWebsite {
             HeaderValue::from_static("*/*")
         );
 
+        #[cfg(debug_assertions)]
+        println!("请求头设置完成：{:?}", init_headers);
+
         // 用 Ok 包裹结构体则表示成功
         Ok(Self {
             client,
@@ -60,19 +70,32 @@ impl AAOWebsite {
     // [异步]初始化会话, 获取 cookie
     // self 前面要加 mut 因为需要更新请求头 headers
     pub async fn init(&mut self) -> Result<(), WebScrapingError> {
+        #[cfg(debug_assertions)]
+        println!("尝试访问：{}", self.base_url);
+
         // await 表示等待请求完成, 出错会转换成自定义错误类型
         let response = self.client.get(&self.base_url)
             .headers(self.headers.clone())  // 设置请求头, 如果不使用 clone() 的话,
             .send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
 
+        let status_code = response.status();
+
         // 请求失败则报错并终止
-        if !response.status().is_success() {
-            return Err(WebScrapingError::HttpRequest(format!("初始化失败: {}", response.status())))
+        if !status_code.is_success() {
+            return Err(WebScrapingError::HttpRequest(format!("初始化失败: {}", status_code)))
         }
 
+        #[cfg(debug_assertions)]
+        println!("访问 {} 成功！ HTTP {}。将获取 cookie", self.base_url, response.status());
+
         // 获取 cookie, 找不到 cookie 也会报错并终止
-        let cookies = response.cookies();
-        if cookies.count() == 0 { return Err(WebScrapingError::CookieInvalid) }
+        // response.cookies() 返回的是迭代器, 一旦迭代器被遍历, 它就被消耗掉了(consumed & moved)
+        // 将其收集到 Vec 中即可多次访问
+        let cookies: Vec<Cookie> = response.cookies().collect();
+        if cookies.is_empty() { return Err(WebScrapingError::CookieInvalid) }
+
+        #[cfg(debug_assertions)]
+        println!("获取成功。cookies: {:?}", cookies);
 
         // 更新 Referer, Cookie 会由 reqwest 自动管理
         self.headers.insert(
@@ -80,32 +103,46 @@ impl AAOWebsite {
             HeaderValue::from_str(&self.base_url).map_err(|e| WebScrapingError::ParseError(e.to_string()))?
         );
 
+        #[cfg(debug_assertions)]
+        println!("请求头已更新：{:?}", self.headers);
+
         Ok(())
     }
 
     // [异步]登录系统
+    // username 和 password 本来就是切片引用(&str), 所以它们已经是借用的形式, 所有权不会被消耗和移除
+    // 它们的生命周期会随着其真正的拥有者(owner)被清理而移除, 在这之前它们一直存在
     pub async fn login(&mut self, username: &str, password: &str) -> Result<(), WebScrapingError> {
+        #[cfg(debug_assertions)]
+        println!("用户输入了登录信息[账：{}，密：{}]，将对其进行编码", username, password);
+
         // b64 对账号密码进行编码
         let encoded = format!("{}%%%{}", encode_inp(username), encode_inp(password));
 
+        #[cfg(debug_assertions)]
+        println!("编码后结果：{}", encoded);
+
         // 提交表单数据并登录
         let login_url = format!("{}/xk/LoginToXk", self.base_url);
+
+        #[cfg(debug_assertions)]
+        println!("现在开始提交表单数据并尝试登录，目标 URL 为 {}", login_url);
+
         let form_data = [("encoded", &encoded)];
         let response = self.client.post(&login_url)
             .headers(self.headers.clone())
             .form(&form_data)
             .send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
 
+        let status_code = response.status();
+
         if !response.status().is_success() {
-            let status_code = response.status();
-            let response_text = response.text().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
-            println!("登录时页面 HTTP code：{}\n响应体如下：\n{}", status_code, response_text);
-            return Err(WebScrapingError::HttpRequest(format!("登录状态异常：{}", status_code)))
+            return Err(WebScrapingError::HttpRequest(format!("登录异常：{}", status_code)))
         }
 
         // response.text() 会获取 response 的所有权并消耗(此时 response 生命周期终止）, 后续无法继续使用 response 变量
         // 因此要在所有权被消耗之前使用 url() 获取 URL
-        // 该操作不会导致所有权转移 remove
+        // 该操作不会导致所有权转移(moved)
         let final_url_option = response.url().to_string();
 
         let response_text = response.text().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
@@ -113,6 +150,9 @@ impl AAOWebsite {
         if response_text.contains(login_failure_indicator) {
             return Err(WebScrapingError::LoginFailed)
         }
+
+        #[cfg(debug_assertions)]
+        println!("登录成功！ HTTP {}", status_code);
 
         self.headers.insert(
             "Referer",
@@ -125,6 +165,9 @@ impl AAOWebsite {
             HeaderValue::from_static("XMLHttpRequest")
         );
 
+        #[cfg(debug_assertions)]
+        println!("请求头已更新：{:?}", self.headers);
+
         Ok(())
     }
 
@@ -132,8 +175,21 @@ impl AAOWebsite {
     pub async fn get_grades(&self) -> Result<(Vec<Course>, Decimal), WebScrapingError> {
         // Step1. 获取成绩页面
         let grades_url = format!("{}/kscj/cjcx_list", self.base_url);
+
+        #[cfg(debug_assertions)]
+        println!("开始访问成绩页面：{}", grades_url);
+
         let form_data = [("kksj", ""), ("kcxz", ""), ("kcmc", ""), ("xsfs", "all")];
         let response = self.client.post(&grades_url).form(&form_data).send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
+
+        let status_code = response.status();
+
+        if !status_code.is_success() {
+            return Err(WebScrapingError::HttpRequest(format!("无法访问{}：{}", grades_url, status_code)))
+        }
+
+        #[cfg(debug_assertions)]
+        println!("访问成功！ HTTP {}。将获取并解析成绩单", status_code);
 
         // 获取响应文本并解析
         let html_content = response.text().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
@@ -153,6 +209,9 @@ impl AAOWebsite {
         // 创建选择器, 类似隔壁 Beautiful Soup
         let tr_selector = Selector::parse("tr").map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
         let td_selector = Selector::parse("td").map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
+
+        #[cfg(debug_assertions)]
+        println!("解析完成，将收集成绩数据");
 
         // 创建[可变]哈希表, 只有 let 后面带 mut 关键字, 变量内容才可被改变, 或者说被重新赋值
         // 但作为静态强类型语言, 不论内容如何改变, 数据类型都不可变
@@ -202,16 +261,28 @@ impl AAOWebsite {
             } else { courses_record.insert(name, course); }
         }
 
+        #[cfg(debug_assertions)]
+        println!("成绩数据收集完成，如下：\n{:?}", courses_record);
+
         // 将值转为向量便于后续处理
         let course_list: Vec<_> = courses_record.into_values().collect();
+
+        #[cfg(debug_assertions)]
+        println!("已转换为向量，将开始计算总学分和加权绩点。");
 
         // 计算总学分和加权绩点
         let total_credits: Decimal = course_list.iter().map(|c| c.credit).sum();
         let total_cg: Decimal = course_list.iter().map(|c| c.credit_gpa).sum();
 
-        // 计算GPA, 避免除以0引发错误
+        #[cfg(debug_assertions)]
+        println!("计算得出总学分 = {}，总加权绩点 = {}", total_credits, total_cg);
+
+        // 计算总绩点(GPA), 避免除以0引发错误
         let final_gpa = if total_credits > Decimal::ZERO { round_2decimal(total_cg / total_credits)}
         else { Decimal::ZERO };
+
+        #[cfg(debug_assertions)]
+        println!("GPA = {}", final_gpa);
 
         // 返回课程列表和GPA
         Ok((course_list, final_gpa))
