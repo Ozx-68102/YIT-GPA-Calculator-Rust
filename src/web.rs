@@ -40,6 +40,7 @@ pub async fn login_page(State(tera): State<Tera>) -> Result<Html<String>, WebErr
 
     #[cfg(debug_assertions)]
     println!("[{}]登录界面渲染成功", current_time());
+    println!("[{}]登录界面被访问", current_time());
 
     Ok(Html(html))
 }

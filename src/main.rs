@@ -20,6 +20,8 @@ struct Asset;   // 虚拟结构体, 用于持有嵌入的模板文件
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    println!("[{}]初始化服务器中...", current_time());
+
     // 初始化模板引擎
     let mut tera = Tera::default();
 
@@ -47,13 +49,15 @@ async fn main() -> Result<()> {
     // 绑定地址到 TCP 监听器
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     let listener = TcpListener::bind(addr).await.with_context(|| format!("[{}]无法绑定到地址 {}", current_time(), addr))?;
-    println!("[{}]服务器运行于 http://{}", current_time(), addr);
+    println!("[{}]服务器将运行于 http://{} ，如不小心关闭浏览器，重新打开浏览器输入该网址即可", current_time(), addr);
 
     // 自动打开浏览器
     let _ = webbrowser::open(&format!("http://{}", addr));
 
     // 监听器启动服务
     serve(listener, app.into_make_service()).await.with_context(|| format!("[{}]服务器启动失败", current_time()))?;
+
+    println!("[{}]服务器启动成功！注意：请勿关闭此窗口，否则程序将终止运行", current_time());
 
     Ok(())
 }
