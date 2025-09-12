@@ -1,8 +1,16 @@
 // 业务逻辑层 - 处理获取到的数据
+use crate::models::Course;
+
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::Local;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+
+
+pub enum GPAMode {
+    Default,    // 默认模式 - 排除部分课程 GPA
+    All,         // 完全模式 - 计算所有课程 GPA
+}
 
 /// base64 编码
 pub fn b64_encode(text: &str) -> String {
@@ -61,4 +69,43 @@ pub fn round_2decimal(d: Decimal) -> Decimal {
 /// 提供当前时间
 pub fn current_time() -> String {
     Local::now().format("%Y-%m-%d %H:%M:%S%.6f").to_string()
+}
+
+
+pub fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, Vec<Course>) {
+    const PERMANENT_IGNORED_COURSES: &[&str] = &["入学教育"];
+
+    let courses: Vec<Course> = courses
+        .iter()
+        .filter(|c| !PERMANENT_IGNORED_COURSES.contains(&c.name.as_str()))
+        .cloned()
+        .collect();
+
+    const EXCLUDED_COURSES: &[&str] = &[
+        "大学生安全教育", "创新创业教育", "劳动教育", "专业基础认知", "大学生心理健康教育", "形势与政策",
+        "军事理论", "军事训练", "军事技能", "体育Ⅰ", "体育Ⅱ", "体育Ⅲ", "体育Ⅳ", "教育见习", "专业见习",
+        "名师大讲堂", "毕业教育", "职业生涯规划与就业指导", "毕业实习", "教育实习", "社会实践",
+        "职场体验", "领导力", "金工实习", "认知实习", "生产实习", "综合实训", "综合设计与展示", "专业认知讲座",
+        "社会调研"
+    ];
+
+    let courses_to_use: Vec<Course> = match mode {
+        GPAMode::Default => {
+            courses.iter()
+                .filter(|c| !EXCLUDED_COURSES.contains(&c.name.as_str()))
+                .cloned().collect()
+        }
+        GPAMode::All => { courses.to_vec() }
+    };
+
+    let total_credits: Decimal = courses_to_use.iter().map(|c| c.credit).sum();
+    let total_cg: Decimal = courses_to_use.iter().map(|c| c.credit_gpa).sum();
+
+    let gpa = if total_credits > Decimal::ZERO {
+        round_2decimal(total_cg / total_credits)
+    } else {
+        Decimal::ZERO
+    };
+
+    (gpa, courses_to_use)
 }

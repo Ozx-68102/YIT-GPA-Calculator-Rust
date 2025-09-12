@@ -234,10 +234,10 @@
     document.addEventListener("DOMContentLoaded", () => {
         const form = document.getElementById("query-form");
         const submitButton = form.querySelector(`input[type="submit"]`);
-        const toastElement = document.getElementById("error-toast");
-        const toastBody = toastElement.querySelector(".toast-body");
 
         // 初始化 Toast
+        const toastElement = document.getElementById("error-toast");
+        const toastBody = toastElement.querySelector(".toast-body");
         const toast = new bootstrap.Toast(toastElement, {autohide: false});
 
         form.addEventListener("submit", async (event) => {
@@ -248,8 +248,8 @@
 
             const account = document.getElementById("account").value;
             const password = document.getElementById("password").value;
-            const formData = new URLSearchParams();
 
+            const formData = new URLSearchParams();
             formData.append("account", account);
             formData.append("password", password);
 

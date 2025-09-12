@@ -40,21 +40,36 @@
 {% endblock style %}
 
 {% block body %}
-<div>
-    <div class="section-title">
-        <h2>平均绩点</h2>
-        <h2 style="color: red;">{{ gpa }}</h2>
-        <h2>不计入绩点计算的课程:</h2>
-        <p>公选课、体育、通识教育选修课、职业生涯规划与就业指导、大学生安全教育、大学生心理健康教育、</p>
-        <p>形势与政策、军事理论、军事训练、创新创业教育、劳动教育、专业基础认知、入学教育、毕业教育、</p>
-        <p>社会实践、社会调研、综合实训、综合设计与展示、职场体验、</p>
-        <p>实习（如金工实习，认知实习, 电工电子实习，毕业实习等）、见习（如教育见习，专业见习等）、</p>
-        <p>名师大讲堂、领导力、系列讲座</p>
-        <h3 style="color: red;">仅供参考，实际情况以教务处为准</h3>
+<div class="container py-4">
+    <div class="section-title row justify-content-center">
+        <div class="col-lg-10">
+            <div class="form-check form-switch d-inline-block mt-3">
+                <input class="form-check-input" id="gpa-mode-switch" role="switch" type="checkbox">
+                <label class="form-check-label" for="gpa-mode-switch">计算全部课程</label>
+            </div>
+            <div class="section-title text-center mb-4 p-3 bg-light rounded shadow-sm">
+                <h2>平均绩点</h2>
+                <h2 class="fw-bold text-danger" id="gpa-display">{{ gpa }}</h2>
+            </div>
+
+            <div class="text-center mb-4 p-3 border rounded" id="excluded-courses-notice">
+                <h2>不计入绩点计算的课程:</h2>
+                <p class="text-muted">
+                    公选课、体育、通识教育选修课、职业生涯规划与就业指导、大学生安全教育、大学生心理健康教育、</p>
+                <p class="text-muted">
+                    形势与政策、军事理论、军事训练、创新创业教育、劳动教育、专业基础认知、入学教育、毕业教育、</p>
+                <p class="text-muted">社会实践、社会调研、综合实训、综合设计与展示、职场体验、</p>
+                <p class="text-muted">实习（如金工实习，认知实习,
+                    电工电子实习，毕业实习等）、见习（如教育见习，专业见习等）、</p>
+                <p class="text-muted">名师大讲堂、领导力、系列讲座</p>
+            </div>
+        </div>
+        <h3 class="text-danger">仅供参考，实际情况以教务处为准</h3>
     </div>
 
     <div>
-        <table id="result-table">
+        <table class="table table-striped table-bordered table-hover" id="result-table">
+            <thead>
             <tr>
                 <th>课程</th>
                 <th>学分</th>
@@ -62,6 +77,8 @@
                 <th>绩点</th>
                 <th>加权绩点</th>
             </tr>
+            </thead>
+            <tbody id="result-table-body">
             {% for course in courses %}
             <tr>
                 <td>{{ course.name }}</td>
@@ -71,7 +88,98 @@
                 <td>{{ course.credit_gpa }}</td>
             </tr>
             {% endfor %}
+            </tbody>
         </table>
     </div>
 </div>
+
+<script type="application/javascript">
+    // 网页加载完成后执行
+    document.addEventListener("DOMContentLoaded", () => {
+        // 初始化 Toast
+        const toastElement = document.getElementById("error-toast");
+        const toastBody = toastElement.querySelector(".toast-body");
+        const toast = new bootstrap.Toast(toastElement, {autohide: false});
+
+        const modeSwitch = document.getElementById("gpa-mode-switch");
+        const GPADisplay = document.getElementById("gpa-display");
+        const tableBody = document.getElementById("result-table-body");
+        const excludedCoursesNotice = document.getElementById("excluded-courses-notice");
+
+        const noticeForAllMode = `
+        <h2>不计入绩点计算的课程:</h2>
+        <p class="text-muted">入学教育（0学分）</p>
+        `;
+        const noticeForDefaultMode = `
+        <h2>不计入绩点计算的课程:</h2>
+        <p class="text-muted">公选课、体育、通识教育选修课、职业生涯规划与就业指导、大学生安全教育、大学生心理健康教育、</p>
+        <p class="text-muted">形势与政策、军事理论、军事训练、创新创业教育、劳动教育、专业基础认知、入学教育、毕业教育、</p>
+        <p class="text-muted">社会实践、社会调研、综合实训、综合设计与展示、职场体验、</p>
+        <p class="text-muted">实习（如金工实习，认知实习, 电工电子实习，毕业实习等）、见习（如教育见习，专业见习等）、</p>
+        <p class="text-muted">名师大讲堂、领导力、系列讲座</p>
+        `;
+
+        function updatePage(data) {
+            // 更新 GPA 显示
+            GPADisplay.textContent = data.gpa;
+
+            // 更新提示文字的显示状态
+            if (modeSwitch.checked) {
+                excludedCoursesNotice.innerHTML = noticeForAllMode;
+            } else {
+                excludedCoursesNotice.innerHTML = noticeForDefaultMode;
+            }
+
+            // 加载课程表格
+            tableBody.innerHTML = "";   // 先清空
+            if (data.courses && data.courses.length > 0) {
+                data.courses.forEach(course => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = `
+                        <td>${course.name}</td>
+                        <td>${course.credit}</td>
+                        <td>${course.score}</td>
+                        <td>${course.grade}</td>
+                        <td>${course.credit_gpa}</td>
+                    `;
+                });
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-danger">没有可用于计算的课程。</td></tr>`
+            }
+        }
+
+        // GPA 切换开关状态是否被改变 / 是否被选中
+        modeSwitch.addEventListener("change", async () => {
+            const isChecked = modeSwitch.checked;
+            const mode = isChecked ? "all" : "default";
+
+            // 显示加载状态
+            GPADisplay.textContent = "计算中...";
+            tableBody.innerHTML = `<tr><td colspan="5">正在重新计算...</td></tr>`;
+
+            try {
+                const response = await fetch("/recalc", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({mode: mode})
+                });
+
+                if (!response.ok) {
+                    const errorMsg = await response.text();
+                    toastBody.textContent = errorMsg || "未知错误";
+                    toast.show()
+                    return false;
+                }
+
+                const data = await response.json();
+                updatePage(data);
+            } catch (error) {
+                GPADisplay.textContent = "计算失败";
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-danger">计算失败</td></tr>`;
+                toastBody.textContent = `意外异常: ${error.message}`;
+                toast.show();
+            }
+        });
+    });
+</script>
 {% endblock body %}

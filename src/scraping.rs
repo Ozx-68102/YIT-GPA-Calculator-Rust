@@ -76,7 +76,7 @@ impl AAOWebsite {
 
         // await 表示等待请求完成, 出错会转换成自定义错误类型
         let response = self.client.get(&self.base_url)
-            .headers(self.headers.clone())  // 设置请求头, 如果不使用 clone() 的话,
+            .headers(self.headers.clone())  // 设置请求头
             .send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
 
         let status_code = response.status();
@@ -172,9 +172,9 @@ impl AAOWebsite {
         Ok(())
     }
 
-    // 获取并解析成绩, 这里不再需要更新 headers 的状态了, 所以不用 mut
-    pub async fn get_grades(&self) -> Result<(Vec<Course>, Decimal), WebScrapingError> {
-        // Step1. 获取成绩页面
+    // 获取成绩数据, 这里不再需要更新 headers 的状态了, 所以不用 mut
+    pub async fn get_grades(&self) -> Result<Vec<Course>, WebScrapingError> {
+        // 获取成绩页面
         let grades_url = format!("{}/kscj/cjcx_list", self.base_url);
 
         #[cfg(debug_assertions)]
@@ -196,17 +196,7 @@ impl AAOWebsite {
         let html_content = response.text().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
         let document = Html::parse_document(&html_content);
 
-        // Step2. 定义排除的课程
-        // vec! 代表动态数组, 类似隔壁的 list
-        let excluded_courses = vec![
-            "大学生安全教育", "创新创业教育", "劳动教育", "专业基础认知", "大学生心理健康教育", "形势与政策",
-            "军事理论", "军事训练", "军事技能", "体育Ⅰ", "体育Ⅱ", "体育Ⅲ", "体育Ⅳ", "教育见习", "专业见习",
-            "名师大讲堂", "入学教育", "毕业教育", "职业生涯规划与就业指导", "毕业实习", "教育实习", "社会实践",
-            "职场体验", "领导力", "金工实习", "认知实习", "生产实习", "综合实训", "综合设计与展示", "专业认知讲座",
-            "社会调研"
-        ];
-
-        // Step3. 解析 HTML 课程表格数据
+        // 解析 HTML 课程表格数据
         // 创建选择器, 类似隔壁 Beautiful Soup
         let tr_selector = Selector::parse("tr").map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
         let td_selector = Selector::parse("td").map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
@@ -224,9 +214,8 @@ impl AAOWebsite {
             let tds: Vec<_> = tr.select(&td_selector).collect();
             if tds.len() < 12 { continue }
 
-            // 提取课程名称(在第4个单元格), 排除特定课程
+            // 提取课程名称(在第4个单元格)
             let name = tds[3].text().collect::<String>().trim().to_string();
-            if excluded_courses.contains(&name.as_str()) { continue }
 
             // 提取总分(在第5个单元格)
             let score_text = tds[4].text().collect::<String>().trim().to_string();
@@ -268,24 +257,7 @@ impl AAOWebsite {
         // 将值转为向量便于后续处理
         let course_list: Vec<_> = courses_record.into_values().collect();
 
-        #[cfg(debug_assertions)]
-        println!("[{}]已转换为向量，将开始计算总学分和加权绩点。", current_time());
-
-        // 计算总学分和加权绩点
-        let total_credits: Decimal = course_list.iter().map(|c| c.credit).sum();
-        let total_cg: Decimal = course_list.iter().map(|c| c.credit_gpa).sum();
-
-        #[cfg(debug_assertions)]
-        println!("[{}]计算得出总学分 = {}，总加权绩点 = {}", current_time(), total_credits, total_cg);
-
-        // 计算总绩点(GPA), 避免除以0引发错误
-        let final_gpa = if total_credits > Decimal::ZERO { round_2decimal(total_cg / total_credits)}
-        else { Decimal::ZERO };
-
-        #[cfg(debug_assertions)]
-        println!("[{}]GPA = {}", current_time(), final_gpa);
-
-        // 返回课程列表和GPA
-        Ok((course_list, final_gpa))
+        // 返回课程数据列表
+        Ok(course_list)
     }
 }

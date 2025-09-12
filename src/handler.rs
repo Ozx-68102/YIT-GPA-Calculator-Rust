@@ -1,6 +1,6 @@
 // 路由控制器
 use crate::{
-    business::{current_time, round_2decimal},
+    business::{calculate_gpa_from_list, current_time, GPAMode},
     models::{Course, WebError},
     scraping::AAOWebsite,
     Asset,
@@ -13,7 +13,6 @@ use axum::{
     Json
 };
 use mime_guess;
-use rust_decimal::Decimal;
 
 // 反序列化解析表单数据, 类似隔壁的 request.form
 use serde::Deserialize;
@@ -28,6 +27,12 @@ use tower_sessions::Session;
 pub struct LoginForm {
     account: String,
     password: String
+}
+
+// GPA 计算模式
+#[derive(Debug, Deserialize)]
+pub struct CalculateMode {
+    mode: String,    // default 或 all
 }
 
 /// 用于处理 static 文件夹模板文件
@@ -78,7 +83,7 @@ pub async fn score_handler(session: Session, Form(form): Form<LoginForm>) -> Res
     scraper.init().await?;
     scraper.login(&form.account, &form.password).await?;
 
-    let (courses, _init_gpa) = scraper.get_grades().await?;
+    let courses = scraper.get_grades().await?;
 
     #[cfg(debug_assertions)]
     println!("[{}]数据爬取成功, 共{}门课程. 存入 Session 中...", current_time(), courses.len());
@@ -94,26 +99,20 @@ pub async fn score_handler(session: Session, Form(form): Form<LoginForm>) -> Res
 }
 
 // 负责从 Session 读取数据并返回给前端
-pub async fn show_result(session: Session, State(tera): State<Tera>) -> Result<impl IntoResponse, WebError> {
+pub async fn show_first_result(session: Session, State(tera): State<Tera>) -> Result<impl IntoResponse, WebError> {
     #[cfg(debug_assertions)]
     println!("[{}]/result 被访问, 正在从 Session 中读取数据...", current_time());
 
-    let courses: Vec<Course> = session.get("courses").await.map_err(|e| WebError::InternalError(e.to_string()))?.unwrap_or_default();
+    let courses_whole_list: Vec<Course> = session.get("courses").await.map_err(|e| WebError::InternalError(e.to_string()))?.unwrap_or_default();
 
-    if !courses.is_empty() {
+    if !courses_whole_list.is_empty() {
         #[cfg(debug_assertions)]
-        println!("[{}]成功从 Session 中读取到数据, 开始计算 GPA 并渲染页面...", current_time());
+        println!("[{}]成功从 Session 中读取到数据, 正在调用业务逻辑模块进行计算...", current_time());
 
-        let total_credits: Decimal = courses.iter().map(|c| c.credit).sum();
-        let total_cg: Decimal = courses.iter().map(|c| c.credit_gpa).sum();
-        let gpa = if total_credits > Decimal::ZERO {
-            round_2decimal(total_cg / total_credits)
-        } else {
-            Decimal::ZERO
-        };
+        let (gpa, courses_final_list) = calculate_gpa_from_list(&courses_whole_list, GPAMode::Default);
 
         let mut context = tera::Context::new();
-        context.insert("courses", &courses);
+        context.insert("courses", &courses_final_list);
         context.insert("gpa", &gpa);
 
         let html = tera.render("result.html", &context).map_err(|e| WebError::TemplateError(e.to_string()))?;
@@ -125,4 +124,22 @@ pub async fn show_result(session: Session, State(tera): State<Tera>) -> Result<i
 
         Ok(Redirect::to("/").into_response())
     }
+}
+
+// 根据前端按钮重新计算 GPA
+pub async fn show_next_result(session: Session, Json(cal_mode): Json<CalculateMode>) -> Result<Json<serde_json::Value>, WebError> {
+    let courses_whole_list: Vec<Course> = session.get("courses").await.map_err(|e| WebError::InternalError(e.to_string()))?.unwrap_or_default();
+
+    if courses_whole_list.is_empty() {
+        return Err(WebError::InternalError("数据异常".to_string()));
+    }
+
+    let mode = match cal_mode.mode.as_str() {
+        "all" => GPAMode::All,
+        _ => GPAMode::Default
+    };
+
+    let (gpa, course_final_list) = calculate_gpa_from_list(&courses_whole_list, mode);
+
+    Ok(Json(json!({"gpa": gpa, "courses": course_final_list})))
 }
