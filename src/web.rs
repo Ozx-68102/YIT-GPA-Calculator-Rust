@@ -1,24 +1,28 @@
 use axum::{
-    extract::{Form, State}, // 提取器: Form 提取表单数据, State 共享状态
+    extract::{Form, State},
     http::{header, StatusCode, Uri},
-    response::{Html, IntoResponse, Response}, // 响应类型: Html 包装 HTML 字符串
-    routing::{get, post},   // 路由方法: get 处理 GET 请求, post 处理 POST 请求
-    Router  // 路由管理器, 类似隔壁的 Flask app.py
+    response::{Html, IntoResponse, Redirect, Response},
+    routing::{get, post}, Json, Router
 };
-
 use mime_guess;
+use rust_decimal::Decimal;
 
 // 反序列化解析表单数据, 类似隔壁的 request.form
 use serde::Deserialize;
-// 模板引擎, 类似 Jinja2
-use tera::Tera;
 
 use crate::{
-    models::WebError,
-    utils::current_time,
+    models::{Course, WebError},
+    utils::{current_time, round_2decimal},
     web_scraping::AAOWebsite,
     Asset
 };
+
+use serde_json::json;
+
+// 模板引擎, 类似 Jinja2
+use tera::Tera;
+
+use tower_sessions::Session;
 
 // 对应前端登录表单的两个字段
 #[derive(Debug, Deserialize)]
@@ -51,7 +55,8 @@ async fn static_handler(uri: Uri) -> impl IntoResponse {
 pub fn create_router(tera: Tera) -> Router {
     Router::new()
         .route("/", get(login_page))    // 根目录是登录页面
-        .route("/score", post(handle_score))    // 登录后显示计算后学分
+        .route("/score", post(handle_score))    // 这是回传登录数据的 API 接口
+        .route("/result", get(show_result)) // 显示计算后学分
         .fallback(static_handler)   // 自动加载并注册 static 的资源
         .with_state(tera)   // 将 Tera 模板引擎作为共享状态以便所有路由处理器都能访问
 }
@@ -71,61 +76,62 @@ pub async fn login_page(State(tera): State<Tera>) -> Result<Html<String>, WebErr
     Ok(Html(html))
 }
 
-// 外层函数用于捕获可能的错误
-pub async fn handle_score(State(tera): State<Tera>, Form(form): Form<LoginForm>) -> Result<Html<String>, WebError> {
-    match inner_handle_score(State(tera.clone()), Form(form)).await {
-        Ok(html) => Ok(html),
-        Err(error) => {
-            // 获取错误信息
-            let error_msg = error.to_string();
-
-            // 存入 tera 上下文
-            let mut context = tera::Context::new();
-            context.insert("error_msg", &error_msg);
-
-            // 渲染页面并且传入上下文
-            let err_html = tera.render("error.html", &context).unwrap_or_else(|_| "无法加载错误页面".to_string());
-
-            Ok(Html(err_html))
-        }
-    }
-}
-
-// 内层函数用于 GPA 查询处理
-async fn inner_handle_score(State(tera): State<Tera>, Form(form): Form<LoginForm>) -> Result<Html<String>, WebError> {
+// 负责登录与爬取数据, 然后将数据存入 Session, 并返回 JSON
+pub async fn handle_score(session: Session, Form(form): Form<LoginForm>) -> Result<Json<serde_json::Value>, WebError> {
     #[cfg(debug_assertions)]
-    println!("[{}]准备初始化网页抓取爬虫与会话(Session)", current_time());
-    // 初始化爬虫
-    // 这里用 mut 的原因是 headers 的变动
+    println!("[{}]API /score 被调用, 准备爬取数据", current_time());
+
     let mut scraper = AAOWebsite::new().map_err(|e| WebError::InternalError(e.to_string()))?;
 
-    // 初始化会话, 获取 Cookie
+    // 初始化会话, 获得 Cookie
     scraper.init().await?;
-
-    #[cfg(debug_assertions)]
-    println!("[{}]即将执行登录操作", current_time());
-
-    // 用表单中的账号密码登录
     scraper.login(&form.account, &form.password).await?;
 
-    #[cfg(debug_assertions)]
-    println!("[{}]登录操作完成，将获取课程数据与GPA", current_time());
-
-    // 获取课程成绩和 GPA
-    let (courses, gpa) = scraper.get_grades().await?;
+    let (courses, _init_gpa) = scraper.get_grades().await?;
 
     #[cfg(debug_assertions)]
-    println!("[{}]开始渲染 GPA 页面", current_time());
+    println!("[{}]数据爬取成功, 共{}门课程. 存入 Session 中...", current_time(), courses.len());
 
-    // 渲染结果页面
-    let mut context = tera::Context::new();
-    context.insert("courses", &courses);
-    context.insert("gpa", &gpa);
-    let html = tera.render("result.html", &context).map_err(|e| WebError::TemplateError(e.to_string()))?;
+    // 将课程存入 Session
+    session.insert("courses", courses).await.map_err(|e| WebError::InternalError(e.to_string()))?;
 
     #[cfg(debug_assertions)]
-    println!("[{}]渲染 GPA 界面成功", current_time());
+    println!("[{}]存入 Session 成功", current_time());
 
-    // 成功则返回网页内容
-    Ok(Html(html))
+    // 返回成功的信号
+    Ok(Json(json!({"success": true})))
+}
+
+// 负责从 Session 读取数据并返回给前端
+pub async fn show_result(session: Session, State(tera): State<Tera>) -> Result<impl IntoResponse, WebError> {
+    #[cfg(debug_assertions)]
+    println!("[{}]/result 被访问, 正在从 Session 中读取数据...", current_time());
+
+    let courses: Vec<Course> = session.get("courses").await.map_err(|e| WebError::InternalError(e.to_string()))?.unwrap_or_default();
+
+    if !courses.is_empty() {
+        #[cfg(debug_assertions)]
+        println!("[{}]成功从 Session 中读取到数据, 开始计算 GPA 并渲染页面...", current_time());
+
+        let total_credits: Decimal = courses.iter().map(|c| c.credit).sum();
+        let total_cg: Decimal = courses.iter().map(|c| c.credit_gpa).sum();
+        let gpa = if total_credits > Decimal::ZERO {
+            round_2decimal(total_cg / total_credits)
+        } else {
+            Decimal::ZERO
+        };
+
+        let mut context = tera::Context::new();
+        context.insert("courses", &courses);
+        context.insert("gpa", &gpa);
+
+        let html = tera.render("result.html", &context).map_err(|e| WebError::TemplateError(e.to_string()))?;
+
+        Ok(Html(html).into_response())
+    } else {
+        #[cfg(debug_assertions)]
+        println!("[{}]Session 中未找到数据, 将重定向到登录页", current_time());
+
+        Ok(Redirect::to("/").into_response())
+    }
 }

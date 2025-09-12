@@ -1,45 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>绩点</title>
-    <style>
-        .section-title {
-            text-align: center;
-            padding: 20px;
-        }
+{% extends "base.html" %}
 
-        #result-table {
-            margin: 0 auto; /* 居中 */
-            width: 80%; /* 控制表格宽度 */
-            border-collapse: collapse;
-        }
+{% block title %}结果显示{% endblock title %}
 
-        #result-table th {
-            background-color: #007BFF;
-            color: white;
-            font-weight: bold;
-            text-align: center;
-            padding: 10px;
-        }
+{% block style %}
+<style>
+    .section-title {
+        text-align: center;
+        padding: 20px;
+    }
 
-        #result-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
+    #result-table {
+        margin: 0 auto; /* 居中 */
+        width: 80%; /* 控制表格宽度 */
+        border-collapse: collapse;
+    }
 
-        #result-table tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
+    #result-table th {
+        background-color: #007BFF;
+        color: white;
+        font-weight: bold;
+        text-align: center;
+        padding: 10px;
+    }
 
-        #result-table tr:hover {
-            background-color: #cce5ff;
-        }
-    </style>
-</head>
-<body>
+    #result-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+    }
 
+    #result-table tr:nth-child(even) {
+        background-color: #f2f2f2;
+    }
+
+    #result-table tr:hover {
+        background-color: #cce5ff;
+    }
+</style>
+{% endblock style %}
+
+{% block body %}
 <div>
     <div class="section-title">
         <h2>平均绩点</h2>
@@ -74,6 +74,4 @@
         </table>
     </div>
 </div>
-
-</body>
-</html>
+{% endblock body %}

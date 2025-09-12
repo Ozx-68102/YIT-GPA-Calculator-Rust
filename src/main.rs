@@ -1,9 +1,16 @@
 use anyhow::{Context, Result};
-use axum::serve;
+use axum::{
+    extract::Request,
+    middleware::{self, Next},
+    serve,
+};
+use rand::Rng;
 use rust_embed::RustEmbed;
 use std::net::SocketAddr;
 use tera::Tera;
 use tokio::net::TcpListener;
+use tower_cookies::{CookieManagerLayer, Key};
+use tower_sessions::{MemoryStore, SessionManagerLayer};
 use utils::current_time;
 use webbrowser;
 
@@ -43,8 +50,22 @@ async fn main() -> Result<()> {
     // 构建 Tera 的继承链
     tera.build_inheritance_chains().context(format!("[{}]构建Tera继承链失败.", current_time()))?;
 
+    // 创建 Session 存储
+    let store = MemoryStore::default();
+
+    // 创建 Session 层
+    let session_layer = SessionManagerLayer::new(store);
+
+    // 创建用于签名的 Cookie 密钥
+    let key = Key::from(&rand::rng().random::<[u8; 64]>());
+
     // 创建路由
-    let app = web::create_router(tera);
+    let app = web::create_router(tera)
+        .layer(middleware::from_fn(move |mut req: Request, next: Next| {
+            req.extensions_mut().insert(key.clone());
+            async move { next.run(req).await }
+        })).layer(session_layer)
+        .layer(CookieManagerLayer::new());
 
     // 绑定地址到 TCP 监听器
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
