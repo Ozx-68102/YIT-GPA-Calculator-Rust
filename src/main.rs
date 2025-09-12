@@ -16,7 +16,7 @@ mod web;
 // folder 路径是相对于 Cargo.toml 文件的
 #[derive(RustEmbed)]
 #[folder = "templates/"]
-struct Asset;   // 虚拟结构体, 用于持有嵌入的模板文件
+pub struct Asset;   // 虚拟结构体, 用于持有嵌入的模板文件
 
 #[tokio::main]
 async fn main() -> Result<()> {

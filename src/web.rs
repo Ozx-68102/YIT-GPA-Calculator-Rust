@@ -1,9 +1,13 @@
 use axum::{
     extract::{Form, State}, // 提取器: Form 提取表单数据, State 共享状态
-    response::Html, // 响应类型: Html 包装 HTML 字符串
+    http::{header, StatusCode, Uri},
+    response::{Html, IntoResponse, Response}, // 响应类型: Html 包装 HTML 字符串
     routing::{get, post},   // 路由方法: get 处理 GET 请求, post 处理 POST 请求
     Router  // 路由管理器, 类似隔壁的 Flask app.py
 };
+
+use mime_guess;
+
 // 反序列化解析表单数据, 类似隔壁的 request.form
 use serde::Deserialize;
 // 模板引擎, 类似 Jinja2
@@ -12,7 +16,8 @@ use tera::Tera;
 use crate::{
     models::WebError,
     utils::current_time,
-    web_scraping::AAOWebsite
+    web_scraping::AAOWebsite,
+    Asset
 };
 
 // 对应前端登录表单的两个字段
@@ -22,11 +27,32 @@ pub struct LoginForm {
     password: String
 }
 
+async fn static_handler(uri: Uri) -> impl IntoResponse {
+    let path = uri.path().trim_start_matches("/");
+
+    if path.is_empty() {
+        return (StatusCode::NOT_FOUND, "Not Found").into_response();
+    }
+
+    match Asset::get(path) {
+        Some(content) => {
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+
+            Response::builder()
+                .header(header::CONTENT_TYPE, mime.as_ref())
+                .body(content.data.into())
+                .unwrap()
+        }
+        None => (StatusCode::NOT_FOUND, "Not Found").into_response()
+    }
+}
+
 // 定义路由
 pub fn create_router(tera: Tera) -> Router {
     Router::new()
         .route("/", get(login_page))    // 根目录是登录页面
         .route("/score", post(handle_score))    // 登录后显示计算后学分
+        .fallback(static_handler)   // 自动加载并注册 static 的资源
         .with_state(tera)   // 将 Tera 模板引擎作为共享状态以便所有路由处理器都能访问
 }
 

@@ -40,3 +40,4 @@ anyhow = "1.0.98"   # 简化错误处理
 thiserror = "2.0.12"    # 自定义错误
 fake_user_agent = "0.2.2"   # 随机 UA
 lazy_static = "1.5.0"   # 将静态变量延时初始化
+mime_guess = "2.0.5"    # 自动返回正确的 Content-Type
