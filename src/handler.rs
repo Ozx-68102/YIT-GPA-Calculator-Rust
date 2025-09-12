@@ -1,27 +1,26 @@
+// 路由控制器
+use crate::{
+    business::{current_time, round_2decimal},
+    models::{Course, WebError},
+    scraping::AAOWebsite,
+    Asset,
+};
+
 use axum::{
     extract::{Form, State},
     http::{header, StatusCode, Uri},
     response::{Html, IntoResponse, Redirect, Response},
-    routing::{get, post}, Json, Router
+    Json
 };
 use mime_guess;
 use rust_decimal::Decimal;
 
 // 反序列化解析表单数据, 类似隔壁的 request.form
 use serde::Deserialize;
-
-use crate::{
-    models::{Course, WebError},
-    utils::{current_time, round_2decimal},
-    web_scraping::AAOWebsite,
-    Asset
-};
-
 use serde_json::json;
 
 // 模板引擎, 类似 Jinja2
 use tera::Tera;
-
 use tower_sessions::Session;
 
 // 对应前端登录表单的两个字段
@@ -31,7 +30,8 @@ pub struct LoginForm {
     password: String
 }
 
-async fn static_handler(uri: Uri) -> impl IntoResponse {
+/// 用于处理 static 文件夹模板文件
+pub async fn static_handler(uri: Uri) -> impl IntoResponse {
     let path = uri.path().trim_start_matches("/");
 
     if path.is_empty() {
@@ -51,18 +51,9 @@ async fn static_handler(uri: Uri) -> impl IntoResponse {
     }
 }
 
-// 定义路由
-pub fn create_router(tera: Tera) -> Router {
-    Router::new()
-        .route("/", get(login_page))    // 根目录是登录页面
-        .route("/score", post(handle_score))    // 这是回传登录数据的 API 接口
-        .route("/result", get(show_result)) // 显示计算后学分
-        .fallback(static_handler)   // 自动加载并注册 static 的资源
-        .with_state(tera)   // 将 Tera 模板引擎作为共享状态以便所有路由处理器都能访问
-}
 
 // 登录页面
-pub async fn login_page(State(tera): State<Tera>) -> Result<Html<String>, WebError> {
+pub async fn show_login(State(tera): State<Tera>) -> Result<Html<String>, WebError> {
     #[cfg(debug_assertions)]
     println!("[{}]开始渲染登录界面", current_time());
 
@@ -77,7 +68,7 @@ pub async fn login_page(State(tera): State<Tera>) -> Result<Html<String>, WebErr
 }
 
 // 负责登录与爬取数据, 然后将数据存入 Session, 并返回 JSON
-pub async fn handle_score(session: Session, Form(form): Form<LoginForm>) -> Result<Json<serde_json::Value>, WebError> {
+pub async fn score_handler(session: Session, Form(form): Form<LoginForm>) -> Result<Json<serde_json::Value>, WebError> {
     #[cfg(debug_assertions)]
     println!("[{}]API /score 被调用, 准备爬取数据", current_time());
 

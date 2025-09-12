@@ -1,12 +1,13 @@
+// 获取数据层
 use crate::{
-    models::{Course, WebScrapingError},
-    utils::{current_time, encode_inp, round_2decimal, score_trans_grade}
+    business::{b64_encode, current_time, round_2decimal, score_trans_grade},
+    models::{Course, WebScrapingError}
 };
+
 use anyhow::Result;
 use fake_user_agent::get_rua;
 use lazy_static::lazy_static;
-use reqwest::header::HeaderValue;
-use reqwest::{cookie::Cookie, header::HeaderMap, Client};
+use reqwest::{cookie::Cookie, header::{HeaderMap, HeaderValue}, Client};
 use rust_decimal::Decimal;
 use scraper::{Html, Selector};
 use std::collections::HashMap;
@@ -117,7 +118,7 @@ impl AAOWebsite {
         println!("[{}]用户输入了登录信息[账：{}，密：{}]，将对其进行编码", current_time(), username, password);
 
         // b64 对账号密码进行编码
-        let encoded = format!("{}%%%{}", encode_inp(username), encode_inp(password));
+        let encoded = format!("{}%%%{}", b64_encode(username), b64_encode(password));
 
         #[cfg(debug_assertions)]
         println!("[{}]编码后结果：{}", current_time(), encoded);

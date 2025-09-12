@@ -1,15 +1,15 @@
-// 小工具库
-use base64::Engine as _;
+// 业务逻辑层 - 处理获取到的数据
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::Local;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
-// b64编码
-pub fn encode_inp(text: &str) -> String {
-    base64::engine::general_purpose::STANDARD.encode(text)
+/// base64 编码
+pub fn b64_encode(text: &str) -> String {
+    STANDARD.encode(text)
 }
 
-// 成绩转换绩点
+/// 成绩转换绩点
 pub fn score_trans_grade(score: &str) -> Option<Decimal> {
     // 返回值有两个状态, Some 表示有值返回, 括号里面是值, None 表示无值
     // 等级制的判断更简短, 先做等级制判断
@@ -44,7 +44,7 @@ pub fn score_trans_grade(score: &str) -> Option<Decimal> {
         s if s < dec!(87) => dec!(3.67),
         s if s < dec!(90) => dec!(4.00),
         s if s < dec!(95) => dec!(4.33),
-        s if s < dec!(100) => dec!(4.67),
+        s if s <= dec!(100) => dec!(4.67),
         _ => return None
     };
 
@@ -53,12 +53,12 @@ pub fn score_trans_grade(score: &str) -> Option<Decimal> {
     Some(grade)
 }
 
-// 保留小数点后2位
+/// 保留小数点后2位
 pub fn round_2decimal(d: Decimal) -> Decimal {
     d.round_dp(2)
 }
 
-// 提供当前时间
+/// 提供当前时间
 pub fn current_time() -> String {
     Local::now().format("%Y-%m-%d %H:%M:%S%.6f").to_string()
 }
