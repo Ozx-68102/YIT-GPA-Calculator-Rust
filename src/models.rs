@@ -1,16 +1,17 @@
-// 结构体与自定义异常
-use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response}
 };
+// 结构体与自定义异常
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 // 课程信息结构体
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Course {
     pub name: String,       // 课程名称
+    pub nature: String,     // 课程性质
     pub score: String,      // 总分
     pub credit: Decimal,    // 学分
     pub grade: Decimal,     // 绩点

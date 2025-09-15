@@ -81,19 +81,22 @@ pub fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, V
         .cloned()
         .collect();
 
-    const EXCLUDED_COURSES: &[&str] = &[
-        "大学生安全教育", "创新创业教育", "劳动教育", "专业基础认知", "大学生心理健康教育", "形势与政策",
-        "军事理论", "军事训练", "军事技能", "体育Ⅰ", "体育Ⅱ", "体育Ⅲ", "体育Ⅳ", "教育见习", "专业见习",
-        "名师大讲堂", "毕业教育", "职业生涯规划与就业指导", "毕业实习", "教育实习", "社会实践",
-        "职场体验", "领导力", "金工实习", "认知实习", "生产实习", "综合实训", "综合设计与展示", "专业认知讲座",
-        "社会调研"
+    const NATURE_EXCLUSIONS: &[&str] = &["公共选修课", "通识教育选修"];
+
+    const EXCLUDED_COURSES_KEYWORD: &[&str] = &[
+        "体育", "职业生涯规划与就业指导", "大学生安全教育", "大学生心理健康教育",
+        "形势与政策", "军事理论", "军事训练", "军事技能", "创新创业教育",
+        "劳动教育", "专业基础认知", "毕业教育", "社会实践", "社会调研",
+        "综合实训", "综合设计与展示", "职场体验", "实习", "见习",
+        "名师大讲堂", "领导力", "系列讲座"
     ];
 
     let courses_to_use: Vec<Course> = match mode {
         GPAMode::Default => {
             courses.iter()
-                .filter(|c| !EXCLUDED_COURSES.contains(&c.name.as_str()))
-                .cloned().collect()
+                .filter(|c|
+                    !EXCLUDED_COURSES_KEYWORD.iter().any(|k| c.name.contains(k)) && !NATURE_EXCLUSIONS.contains(&c.nature.as_str())
+                ).cloned().collect()
         }
         GPAMode::All => { courses.to_vec() }
     };

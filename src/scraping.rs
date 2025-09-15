@@ -220,6 +220,9 @@ impl AAOWebsite {
             // 提取总分(在第5个单元格)
             let score_text = tds[4].text().collect::<String>().trim().to_string();
 
+            // 提取课程性质(在第12个单元格)
+            let nature = tds[11].text().collect::<String>().trim().to_string();
+
             // 提取学分并且转换为 Decimal 类型
             let credit_text = tds[6].text().collect::<String>().trim().to_string();
             let credit = match credit_text.parse::<Decimal>() {
@@ -239,6 +242,7 @@ impl AAOWebsite {
             // 哈希表去重: 课程存在多个, 则取较高绩点者; 否则直接插入表
             let course = Course {
                 name: name.clone(),
+                nature,
                 score: score_text,
                 credit,
                 grade: grade_point,
@@ -248,7 +252,9 @@ impl AAOWebsite {
                 if course.grade > existing.grade {
                     *existing = course.clone();
                 }
-            } else { courses_record.insert(name, course); }
+            } else {
+                courses_record.insert(name, course);
+            }
         }
 
         #[cfg(debug_assertions)]
