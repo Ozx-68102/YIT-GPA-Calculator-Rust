@@ -1,16 +1,17 @@
-use crate::business::current_time;
+use crate::business::{format_log_msg, print_info};
 
 use anyhow::{Context, Result};
 use axum::{
     extract::Request,
     middleware::{self, Next},
     serve,
+    Extension
 };
 use rand::Rng;
 use rust_embed::RustEmbed;
 use std::net::SocketAddr;
 use tera::Tera;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::broadcast};
 use tower_cookies::{CookieManagerLayer, Key};
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 use webbrowser;
@@ -29,7 +30,9 @@ pub struct Asset;   // 虚拟结构体, 用于持有嵌入的模板文件
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("[{}]初始化服务器中...", current_time());
+    print_info("初始化服务器中...");
+
+    let (shutdown_tx, mut shutdown_rx) = broadcast::channel::<()>(1);
 
     // 初始化模板引擎
     let mut tera = Tera::default();
@@ -44,13 +47,13 @@ async fn main() -> Result<()> {
             let content = std::str::from_utf8(embedded_file.data.as_ref())?;
 
             // 将 HTML 模板添加到 Tera 实例
-            // 这里的 content 已经是借用的形式了(&str), 因此可以不需要借用符号(&)
-            tera.add_raw_template(&file_path, content).with_context(|| format!("[{}]导入嵌入文件失败: {}", current_time(), file_path))?;
+            // 这里的 content 已经是借用的形式了(类型 &str), 因此可以不需要借用符号(&)
+            tera.add_raw_template(&file_path, content).with_context(|| format_log_msg(&format!("导入嵌入文件失败: {}", file_path)))?;
         }
     }
 
     // 构建 Tera 的继承链
-    tera.build_inheritance_chains().context(format!("[{}]构建Tera继承链失败.", current_time()))?;
+    tera.build_inheritance_chains().with_context(|| format_log_msg("构建Tera继承链失败"))?;
 
     // 创建 Session 存储
     let store = MemoryStore::default();
@@ -63,6 +66,7 @@ async fn main() -> Result<()> {
 
     // 创建路由
     let app = router::create_router(tera)
+        .layer(Extension(shutdown_tx))  // 增加关闭服务器的扩展
         .layer(middleware::from_fn(move |mut req: Request, next: Next| {
             req.extensions_mut().insert(key.clone());
             async move { next.run(req).await }
@@ -71,16 +75,24 @@ async fn main() -> Result<()> {
 
     // 绑定地址到 TCP 监听器
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
-    let listener = TcpListener::bind(addr).await.with_context(|| format!("[{}]无法绑定到地址 {}", current_time(), addr))?;
-    println!("[{}]服务器将运行于 http://{} ，如不小心关闭浏览器，重新打开浏览器输入该网址即可", current_time(), addr);
+    let listener = TcpListener::bind(addr).await.with_context(|| format_log_msg(&format!("无法绑定到地址 {}", addr)))?;
+    print_info(&format!("服务器将运行于 http://{} ，如不小心关闭浏览器，重新打开浏览器输入该网址即可", addr));
 
     // 自动打开浏览器
     let _ = webbrowser::open(&format!("http://{}", addr));
 
-    // 监听器启动服务
-    serve(listener, app.into_make_service()).await.with_context(|| format!("[{}]服务器启动失败", current_time()))?;
+    print_info("服务器启动成功！注意：请勿关闭此窗口，否则程序将终止运行");
 
-    println!("[{}]服务器启动成功！注意：请勿关闭此窗口，否则程序将终止运行", current_time());
+    // 监听器启动服务
+    let server = serve(listener, app.into_make_service()).with_graceful_shutdown(async move {
+        shutdown_rx.recv().await.ok();
+        print_info("服务器正在关闭...");
+    });
+
+    server.await.with_context(|| format_log_msg("服务器运行时发生致命错误"))?;
+
+    #[cfg(debug_assertions)]
+    print_info("服务器已成功关闭");
 
     Ok(())
 }

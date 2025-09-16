@@ -67,11 +67,12 @@ pub fn round_2decimal(d: Decimal) -> Decimal {
 }
 
 /// 提供当前时间
-pub fn current_time() -> String {
+fn current_time() -> String {
     Local::now().format("%Y-%m-%d %H:%M:%S%.6f").to_string()
 }
 
 
+/// 计算GPA
 pub fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, Vec<Course>) {
     const PERMANENT_IGNORED_COURSES: &[&str] = &["入学教育"];
 
@@ -111,4 +112,19 @@ pub fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, V
     };
 
     (gpa, courses_to_use)
+}
+
+/// 格式化信息
+pub fn format_log_msg(msg: &str) -> String {
+    format!("[{}]{}", current_time(), msg)
+}
+
+/// 打印正常信息
+pub fn print_info(msg: &str) {
+    println!("{}", format_log_msg(msg));
+}
+
+/// 打印异常信息
+pub fn print_error(msg: &str) {
+    eprintln!("{}", format_log_msg(msg));
 }

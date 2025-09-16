@@ -1,6 +1,6 @@
 // 路由控制器
 use crate::{
-    business::{calculate_gpa_from_list, current_time, GPAMode},
+    business::{calculate_gpa_from_list, print_error, print_info, GPAMode},
     models::{Course, WebError},
     scraping::AAOWebsite,
     Asset,
@@ -10,6 +10,7 @@ use axum::{
     extract::{Form, State},
     http::{header, StatusCode, Uri},
     response::{Html, IntoResponse, Redirect, Response},
+    Extension,
     Json
 };
 use mime_guess;
@@ -20,6 +21,7 @@ use serde_json::json;
 
 // 模板引擎, 类似 Jinja2
 use tera::Tera;
+use tokio::sync::broadcast;
 use tower_sessions::Session;
 
 // 对应前端登录表单的两个字段
@@ -58,16 +60,25 @@ pub async fn static_handler(uri: Uri) -> impl IntoResponse {
 
 
 // 登录页面
-pub async fn show_login(State(tera): State<Tera>) -> Result<Html<String>, WebError> {
+pub async fn show_login(session: Session, State(tera): State<Tera>) -> Result<Html<String>, WebError> {
     #[cfg(debug_assertions)]
-    println!("[{}]开始渲染登录界面", current_time());
+    print_info("开始渲染登录界面");
 
-    let context = tera::Context::new();
+    let mut context = tera::Context::new();
+
+    let flash_msg: Option<String> = session.remove("flash_msg").await.map_err(|e| WebError::InternalError(e.to_string()))?;
+    if let Some(msg) = flash_msg {
+        context.insert("flash_msg", &msg);
+        print_error(&format!("检测到异常消息: {}", msg));
+    }
+
     let html = tera.render("login.html", &context).map_err(|e| WebError::TemplateError(e.to_string()))?;
 
     #[cfg(debug_assertions)]
-    println!("[{}]登录界面渲染成功", current_time());
-    println!("[{}]登录界面被访问", current_time());
+    print_info("渲染成功");
+
+    #[cfg(not(debug_assertions))]
+    print_info("登录界面被访问");
 
     Ok(Html(html))
 }
@@ -75,7 +86,10 @@ pub async fn show_login(State(tera): State<Tera>) -> Result<Html<String>, WebErr
 // 负责登录与爬取数据, 然后将数据存入 Session, 并返回 JSON
 pub async fn score_handler(session: Session, Form(form): Form<LoginForm>) -> Result<Json<serde_json::Value>, WebError> {
     #[cfg(debug_assertions)]
-    println!("[{}]API /score 被调用, 准备爬取数据", current_time());
+    print_info("API /score 被调用, 准备爬取数据");
+
+    #[cfg(not(debug_assertions))]
+    print_info("正在登录中...");
 
     let mut scraper = AAOWebsite::new().map_err(|e| WebError::InternalError(e.to_string()))?;
 
@@ -83,16 +97,19 @@ pub async fn score_handler(session: Session, Form(form): Form<LoginForm>) -> Res
     scraper.init().await?;
     scraper.login(&form.account, &form.password).await?;
 
+    #[cfg(not(debug_assertions))]
+    print_info("登录成功");
+
     let courses = scraper.get_grades().await?;
 
     #[cfg(debug_assertions)]
-    println!("[{}]数据爬取成功, 共{}门课程. 存入 Session 中...", current_time(), courses.len());
+    print_info(&format!("数据爬取成功, 共{}门课程. 存入 Session 中...", courses.len()));
 
     // 将课程存入 Session
     session.insert("courses", courses).await.map_err(|e| WebError::InternalError(e.to_string()))?;
 
     #[cfg(debug_assertions)]
-    println!("[{}]存入 Session 成功", current_time());
+    print_info("存入 Session 成功");
 
     // 返回成功的信号
     Ok(Json(json!({"success": true})))
@@ -101,13 +118,16 @@ pub async fn score_handler(session: Session, Form(form): Form<LoginForm>) -> Res
 // 负责从 Session 读取数据并返回给前端
 pub async fn show_first_result(session: Session, State(tera): State<Tera>) -> Result<impl IntoResponse, WebError> {
     #[cfg(debug_assertions)]
-    println!("[{}]/result 被访问, 正在从 Session 中读取数据...", current_time());
+    print_info("/result 被访问, 正在从 Session 中读取数据...");
+
+    #[cfg(not(debug_assertions))]
+    print_info("正在显示数据...");
 
     let courses_whole_list: Vec<Course> = session.get("courses").await.map_err(|e| WebError::InternalError(e.to_string()))?.unwrap_or_default();
 
     if !courses_whole_list.is_empty() {
         #[cfg(debug_assertions)]
-        println!("[{}]成功从 Session 中读取到数据, 正在调用业务逻辑模块进行计算...", current_time());
+        print_info("成功从 Session 中读取到数据, 正在调用业务逻辑模块进行计算...");
 
         let (gpa, courses_final_list) = calculate_gpa_from_list(&courses_whole_list, GPAMode::Default);
 
@@ -115,12 +135,23 @@ pub async fn show_first_result(session: Session, State(tera): State<Tera>) -> Re
         context.insert("courses", &courses_final_list);
         context.insert("gpa", &gpa);
 
+        #[cfg(debug_assertions)]
+        print_info("计算成功, 开始尝试渲染查询页面...");
+
         let html = tera.render("result.html", &context).map_err(|e| WebError::TemplateError(e.to_string()))?;
+
+        #[cfg(not(debug_assertions))]
+        print_info("数据显示成功");
+
+        #[cfg(debug_assertions)]
+        print_info("渲染成功");
 
         Ok(Html(html).into_response())
     } else {
         #[cfg(debug_assertions)]
-        println!("[{}]Session 中未找到数据, 将重定向到登录页", current_time());
+        print_error("Session 中未找到数据, 将重定向到登录页");
+
+        session.insert("flash_msg", "会话状态异常。").await.map_err(|e| WebError::InternalError(e.to_string()))?;
 
         Ok(Redirect::to("/").into_response())
     }
@@ -128,6 +159,8 @@ pub async fn show_first_result(session: Session, State(tera): State<Tera>) -> Re
 
 // 根据前端按钮重新计算 GPA
 pub async fn show_next_result(session: Session, Json(cal_mode): Json<CalculateMode>) -> Result<Json<serde_json::Value>, WebError> {
+    print_info("尝试切换计算模式...");
+
     let courses_whole_list: Vec<Course> = session.get("courses").await.map_err(|e| WebError::InternalError(e.to_string()))?.unwrap_or_default();
 
     if courses_whole_list.is_empty() {
@@ -141,5 +174,13 @@ pub async fn show_next_result(session: Session, Json(cal_mode): Json<CalculateMo
 
     let (gpa, course_final_list) = calculate_gpa_from_list(&courses_whole_list, mode);
 
+    print_info("已切换计算模式");
+
     Ok(Json(json!({"gpa": gpa, "courses": course_final_list})))
+}
+
+pub async fn shutdown_handler(Extension(shutdown_tx): Extension<broadcast::Sender<()>>) -> (StatusCode, &'static str) {
+    let _ = shutdown_tx.send(());
+
+    (StatusCode::OK, "服务器正在关闭...")
 }

@@ -209,6 +209,21 @@
 {% endblock style %}
 
 {% block body %}
+
+{% if flash_msg %}
+<script type="application/javascript">
+    document.addEventListener("DOMContentLoaded", () => {
+        // 初始化 Toast
+        const toastElement = document.getElementById("error-toast");
+        const toastBody = toastElement.querySelector(".toast-body");
+        const toast = new bootstrap.Toast(toastElement, {autohide: false});
+
+        toastBody.textContent = `{{ flash_msg | escape(strategy="js") | safe }}`;
+        toast.show();
+    });
+</script>
+{% endif %}
+
 <!-- 搭建基本结构 -->
 <div class="box">
     <span class="borderLine"></span>

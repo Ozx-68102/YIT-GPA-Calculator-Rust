@@ -40,13 +40,28 @@
 {% endblock style %}
 
 {% block body %}
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+        <div class="navbar-brand user-select-none">GPA查询</div>
+        <div class="navbar-nav">
+            <div class="nav-item">
+                <div class="form-check form-switch d-inline-block">
+                    <input class="form-check-input" id="gpa-mode-switch" role="switch" type="checkbox">
+                    <label class="form-check-label" for="gpa-mode-switch">计算全部课程</label>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-danger" id="shutdown-button">关闭程序</button>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <div class="alert alert-dismissible fade show d-none" id="shutdown-alert-placeholder-content" role="alert"></div>
+</div>
+
 <div class="container py-4">
     <div class="section-title row justify-content-center">
         <div class="col-lg-10">
-            <div class="form-check form-switch d-inline-block mt-3">
-                <input class="form-check-input" id="gpa-mode-switch" role="switch" type="checkbox">
-                <label class="form-check-label" for="gpa-mode-switch">计算全部课程</label>
-            </div>
             <div class="section-title text-center mb-4 p-3 bg-light rounded shadow-sm">
                 <h2>平均绩点</h2>
                 <h2 class="fw-bold text-danger" id="gpa-display">{{ gpa }}</h2>
@@ -95,6 +110,29 @@
     </div>
 </div>
 
+<!-- 关闭程序确认模态框 -->
+<div aria-hidden="true" aria-labelledby="shutdown-confirm-modal" class="modal fade" id="shutdown-confirm-modal"
+     tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shutdown-confirm-title">确认关闭吗？</h5>
+                <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row col-12">
+                    <p id="shutdown-confirm-text">
+                        是否关闭此程序？关闭后，网页将不再响应后续操作，需要重新启动程序登录后才可继续使用。</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
+                <button class="btn btn-danger" id="shutdown-confirm-submit" type="button">确认关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script type="application/javascript">
     // 网页加载完成后执行
     document.addEventListener("DOMContentLoaded", () => {
@@ -103,6 +141,7 @@
         const toastBody = toastElement.querySelector(".toast-body");
         const toast = new bootstrap.Toast(toastElement, {autohide: false});
 
+        // GPA 切换的逻辑
         const modeSwitch = document.getElementById("gpa-mode-switch");
         const GPADisplay = document.getElementById("gpa-display");
         const tableBody = document.getElementById("result-table-body");
@@ -181,6 +220,50 @@
                 tableBody.innerHTML = `<tr><td colspan="6" class="text-danger">计算失败</td></tr>`;
                 toastBody.textContent = `意外异常: ${error.message}`;
                 toast.show();
+            }
+        });
+
+        // 关闭功能逻辑
+        const shutdownBtn = document.getElementById("shutdown-button");
+
+        const confirmShutdownModal = new bootstrap.Modal(document.getElementById("shutdown-confirm-modal"));
+        const confirmShutdownTitle = document.getElementById("shutdown-confirm-title");
+        const confirmShutdownText = document.getElementById("shutdown-confirm-text");
+        const confirmShutdownBtn = document.getElementById("shutdown-confirm-submit");
+        const shutdownAlertPlaceholder = document.getElementById("shutdown-alert-placeholder-content");
+
+        shutdownBtn.addEventListener("click", () => {
+            confirmShutdownTitle.textContent = "确认关闭吗？";
+            confirmShutdownText.textContent = "是否关闭此程序？关闭后，网页将不再响应后续操作，需要重新启动程序登录后才可继续使用。";
+            confirmShutdownBtn.textContent = "确认关闭";
+            confirmShutdownBtn.disabled = false;
+            confirmShutdownModal.show();
+        });
+
+        // 这里不使用括号函数是因为其直接继承外部的 this
+        confirmShutdownBtn.addEventListener("click", async function () {
+            shutdownBtn.disabled = true;
+            this.disabled = true;
+            this.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>正在关闭...`;
+
+            try {
+                await fetch("/shutdown", {method: "POST"});
+
+                confirmShutdownModal.hide();
+                shutdownAlertPlaceholder.textContent = "程序已成功退出，请手动关闭此浏览器选项卡。";
+                shutdownAlertPlaceholder.classList.add("alert-danger");
+                shutdownAlertPlaceholder.classList.remove("d-none");
+
+                shutdownBtn.textContent = "程序已关闭";
+                modeSwitch.disabled = true;
+            } catch (error) {
+                confirmShutdownModal.hide();
+
+                toastBody.textContent = `关闭失败: ${error.message}`;
+                toast.show();
+
+                shutdownBtn.disabled = false;
+                this.disabled = false;
             }
         });
     });
