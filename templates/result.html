@@ -71,6 +71,7 @@
         <table class="table table-striped table-bordered table-hover" id="result-table">
             <thead>
             <tr>
+                <th>序号</th>
                 <th>课程</th>
                 <th>学分</th>
                 <th>成绩</th>
@@ -81,6 +82,7 @@
             <tbody id="result-table-body">
             {% for course in courses %}
             <tr>
+                <td>{{ loop.index }}</td>
                 <td>{{ course.name }}</td>
                 <td>{{ course.credit }}</td>
                 <td>{{ course.score }}</td>
@@ -133,9 +135,10 @@
             // 加载课程表格
             tableBody.innerHTML = "";   // 先清空
             if (data.courses && data.courses.length > 0) {
-                data.courses.forEach(course => {
+                data.courses.forEach((course, index) => {
                     const row = tableBody.insertRow();
                     row.innerHTML = `
+                        <td>${index + 1}</td>
                         <td>${course.name}</td>
                         <td>${course.credit}</td>
                         <td>${course.score}</td>
@@ -144,7 +147,7 @@
                     `;
                 });
             } else {
-                tableBody.innerHTML = `<tr><td colspan="5" class="text-danger">没有可用于计算的课程。</td></tr>`
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-danger">没有可用于计算的课程。</td></tr>`
             }
         }
 
@@ -155,7 +158,7 @@
 
             // 显示加载状态
             GPADisplay.textContent = "计算中...";
-            tableBody.innerHTML = `<tr><td colspan="5">正在重新计算...</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="6">正在重新计算...</td></tr>`;
 
             try {
                 const response = await fetch("/recalc", {
@@ -175,7 +178,7 @@
                 updatePage(data);
             } catch (error) {
                 GPADisplay.textContent = "计算失败";
-                tableBody.innerHTML = `<tr><td colspan="5" class="text-danger">计算失败</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-danger">计算失败</td></tr>`;
                 toastBody.textContent = `意外异常: ${error.message}`;
                 toast.show();
             }
