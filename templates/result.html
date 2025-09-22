@@ -113,47 +113,6 @@
     </div>
 </div>
 
-<!-- 关闭程序确认模态框 -->
-<div aria-hidden="true" aria-labelledby="shutdown-confirm-modal" class="modal fade" id="shutdown-confirm-modal"
-     tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="shutdown-confirm-title">确认关闭吗？</h5>
-                <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row col-12">
-                    <p id="shutdown-confirm-text">
-                        是否关闭此程序？关闭后，网页将不再响应后续操作，需要重新启动程序登录后才可继续使用。
-                    </p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
-                <button class="btn btn-danger" id="shutdown-confirm-submit" type="button">确认关闭</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 退出登录确认模态框 -->
-<div aria-hidden="true" aria-labelledby="logout-confirm-modal" class="modal fade" id="logout-confirm-modal"
-     tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="logout-confirm-title">确认退出登录吗？</h5>
-                <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
-                <button class="btn btn-warning" id="logout-confirm-submit" type="button">确认退出</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script type="application/javascript">
     // 网页加载完成后执行
     document.addEventListener("DOMContentLoaded", () => {
@@ -248,77 +207,77 @@
             }
         });
 
-        // 关闭功能逻辑
-        const shutdownBtn = document.getElementById("shutdown-button");
-        const confirmShutdownModal = new bootstrap.Modal(document.getElementById("shutdown-confirm-modal"));
-        const confirmShutdownTitle = document.getElementById("shutdown-confirm-title");
-        const confirmShutdownText = document.getElementById("shutdown-confirm-text");
-        const confirmShutdownBtn = document.getElementById("shutdown-confirm-submit");
-        const shutdownAlertPlaceholder = document.getElementById("shutdown-alert-placeholder-content");
+        // 调用基层模板中的模态框
+        const baseModal = new bootstrap.Modal(document.getElementById("base-modal"));
+        const baseTitle = document.getElementById("base-modal-title");  // 标题
+        const baseText = document.getElementById("base-modal-body-text");   // 正文
+        const baseApiSpecified = document.getElementById("base-modal-url"); // 指定后端接口
+        const baseBtn = document.getElementById("base-modal-submit");   // 确定按钮
 
-        shutdownBtn.addEventListener("click", () => {
-            confirmShutdownTitle.textContent = "确认关闭吗？";
-            confirmShutdownText.textContent = "是否关闭此程序？关闭后，网页将不再响应后续操作，需要重新启动程序登录后才可继续使用。";
-            confirmShutdownBtn.textContent = "确认关闭";
-            confirmShutdownBtn.disabled = false;
-            confirmShutdownModal.show();
-        });
+        /** 提交参数到指定后端接口
+         * @param {string} choice 后端接口
+         * @throws Error
+         * @return {Promise<void>}
+         */
+        async function submitModalRequest(choice) {
+            if (!["/shutdown", "/logout"].includes(choice)) {
+                throw new Error("内部错误: 接口参数异常");
+            }
 
-        // 这里不使用括号函数是因为其直接继承外部的 this
-        confirmShutdownBtn.addEventListener("click", async function () {
-            shutdownBtn.disabled = true;
-            this.disabled = true;
-            this.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>正在关闭...`;
+            await fetch(choice, {method: "POST"});
 
-            try {
-                await fetch("/shutdown", {method: "POST"});
-
-                confirmShutdownModal.hide();
-                shutdownAlertPlaceholder.textContent = "程序已成功退出，请手动关闭此浏览器选项卡。";
+            if (choice === "/shutdown") {
+                shutdownAlertPlaceholder.textContent = "程序已成功关闭，请手动关闭此浏览器选项卡。";
                 shutdownAlertPlaceholder.classList.add("alert-danger");
                 shutdownAlertPlaceholder.classList.remove("d-none");
 
                 shutdownBtn.textContent = "程序已关闭";
+                shutdownBtn.disabled = true;
                 modeSwitch.disabled = true;
+            } else { // 在本页目前不是关闭程序就是注销登录状态
+                window.location.href = "/";
+            }
+        }
+
+        // 模态框按钮被点击
+        baseBtn.addEventListener("click", async function () {
+            const api = baseApiSpecified.value;
+            try {
+                this.disabled = true;
+                await submitModalRequest(api);
             } catch (error) {
-                confirmShutdownModal.hide();
-
-                toastBody.textContent = `关闭失败: ${error.message}`;
-                toast.show();
-
-                shutdownBtn.disabled = false;
-                this.disabled = false;
+                toastBody.textContent = `发生错误: ${error.message}`;
+                toast.show()
+            } finally {
+                baseModal.hide();
             }
         });
 
-        // 退出登录逻辑
+        // 关闭功能
+        const shutdownBtn = document.getElementById("shutdown-button");
+        const shutdownAlertPlaceholder = document.getElementById("shutdown-alert-placeholder-content");
+
+        shutdownBtn.addEventListener("click", () => {
+            baseTitle.textContent = "确认关闭程序吗？";
+            baseText.textContent = "是否关闭此程序？关闭后，网页将不再响应后续操作，需要重新启动程序登录后才可继续使用。";
+            baseApiSpecified.value = "/shutdown";
+            baseBtn.className = "btn btn-danger";
+            baseBtn.textContent = "确认关闭";
+            baseBtn.disabled = false;
+            baseModal.show();
+        });
+
+        // 退出登录
         const logoutBtn = document.getElementById("logout-button");
-        const confirmLogoutModal = new bootstrap.Modal(document.getElementById("logout-confirm-modal"));
-        const confirmLogoutTitle = document.getElementById("logout-confirm-title");
-        const confirmLogoutBtn = document.getElementById("logout-confirm-submit");
 
         logoutBtn.addEventListener("click", () => {
-            confirmLogoutTitle.textContent = "确认退出登录吗？";
-            confirmLogoutBtn.textContent = "确认退出";
-            confirmLogoutBtn.disabled = false;
-            confirmLogoutModal.show();
-        });
-
-        confirmLogoutBtn.addEventListener("click", async function () {
-            this.disabled = true;
-            this.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>正在退出...`;
-
-            try {
-                await fetch("/logout", {method: "POST"});
-                window.location.href = "/";
-            } catch (error) {
-                confirmLogoutModal.hide();
-
-                toastBody.textContent = `退出失败: ${error.message}`;
-                toast.show();
-
-                this.disabled = false;
-            }
+            baseTitle.textContent = "确认退出登录吗？";
+            baseText.textContent = "将注销此会话，需重新登录以查询绩点。";
+            baseApiSpecified.value = "/logout";
+            baseBtn.className = "btn btn-warning";
+            baseBtn.textContent = "确认退出";
+            baseBtn.disabled = false;
+            baseModal.show();
         });
     });
 </script>

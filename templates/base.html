@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <link href="static/css/bootstrap.min.css" rel="stylesheet">
@@ -17,12 +17,36 @@
     {% block style %}{% endblock style %}
 </head>
 <body>
+<!-- Toasts 弹窗 -->
 <div class="toast-container">
     <div aria-atomic="true" aria-live="assertive" class="toast hide" data-bs-autohide="false" id="error-toast"
          role="alert">
         <div class="d-flex">
             <div class="toast-body"></div>
             <button aria-label="Close" class="btn-close me-2 m-auto" data-bs-dismiss="toast" type="button"></button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 模态框 -->
+<div aria-hidden="true" aria-labelledby="base-modal" class="modal fade" id="base-modal"
+     tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="base-modal-title"></h5>
+                <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row col-12">
+                    <p id="base-modal-body-text"></p>
+                </div>
+            </div>
+            <input id="base-modal-url" type="hidden">
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
+                <button class="btn" id="base-modal-submit" type="button"></button>
+            </div>
         </div>
     </div>
 </div>

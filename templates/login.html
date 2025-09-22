@@ -14,13 +14,21 @@
     }
 
     body {
-        /* 对整整体进行设置 设置为弹性盒子,并且居中 */
+        /* 简化 body 样式，只保留背景色 */
+        background: #222;
+    }
+
+    nav {
+        background: #222;
+    }
+
+    /* 新增一个 main-content 容器，将居中样式移到这里 */
+    .main-content {
         display: flex;
         justify-content: center;
         align-items: center;
-        /* min-height 属性设置元素的最小高度为 100vh。vh 是视口高度的单位，1vh 等于浏览器窗口的高度的 1%。这意味着，设置 min-height: 100vh; 的元素的高度将至少为浏览器窗口的高度 底色设置为黑色*/
-        min-height: 100vh;
-        background: #222;
+        flex-grow: 1; /* 让这个容器尝试占据所有剩余的垂直空间 */
+        min-height: 75vh; /* 确保在内容少时也能撑满屏幕，给 navbar 留出一些空间 */
     }
 
     .box {
@@ -69,14 +77,14 @@
         position: relative;
         width: 100%;
         padding: 20px 10px 10px;
-        background: transparent; /*input文本框隐藏起来方便用li标签的那根线撑起来形成文本框仅仅只是展示效果,实际上任然是input文本框 */
+        background: transparent; /* input文本框隐藏起来方便用li标签的那根线撑起来形成文本框仅仅只是展示效果,实际上仍然是input文本框 */
         outline: none;
         border: none;
-        box-shadow: none; /*阴影设置*/
+        box-shadow: none; /* 阴影设置 */
         color: #23242a;
         font-size: 1em;
-        letter-spacing: 0.05em; /* 制文本中字符之间的间距为0.1em 属性应用于 <p>、<h> 以及 <span> 元素*/
-        z-index: 10; /*优先级设置 */
+        letter-spacing: 0.05em; /* 制文本中字符之间的间距为0.1em 属性应用于 <p>、<h> 以及 <span> 元素 */
+        z-index: 10; /* 优先级设置 */
         transition: 0.3s;
     }
 
@@ -91,16 +99,16 @@
         transition: 0.5s; /*动画过渡*/
     }
 
-    .box form .inputBox input:valid ~ span, /*选择器将选择所有紧跟在有效输入字段后的 <span> 元素。*/
-    .box form .inputBox input:focus ~ span /*用于选中处于焦点状态的输入字段之后的所有 <span> 元素。*/
+    .box form .inputBox input:valid ~ span, /* 选择器将选择所有紧跟在有效输入字段后的 <span> 元素。*/
+    .box form .inputBox input:focus ~ span /* 用于选中处于焦点状态的输入字段之后的所有 <span> 元素。*/
     {
         color: #fff;
         font-size: 0.75em;
-        transform: translateY(-34px); /*向上移动34个像素*/
+        transform: translateY(-34px); /* 向上移动34个像素 */
     }
 
     .box form .inputBox i {
-        position: absolute; /*相对于inputBox定位,并且在最左和最下面 */
+        position: absolute; /* 相对于inputBox定位,并且在最左和最下面 */
         left: 0;
         bottom: 0;
         width: 100%;
@@ -121,8 +129,7 @@
     .box form .links {
         display: flex;
         justify-content: space-between;
-        /*容器内的 flex 项目在水平方向上均匀分布，
-                项目之间的间距相等，并且最左侧和最右侧的项目紧贴容器的边界。*/
+        /* 容器内的 flex 项目在水平方向上均匀分布，项目之间的间距相等，并且最左侧和最右侧的项目紧贴容器的边界。*/
     }
 
     .box form .links a {
@@ -138,10 +145,10 @@
     }
 
     /* 按钮样式 */
-    .box form input[type='submit'] {
+    .box form input[type="submit"] {
         padding: 9px 25px;
         background: #fff;
-        cursor: pointer; /*设置鼠标样式*/
+        cursor: pointer; /* 设置鼠标样式 */
         font-size: 0.9em;
         border-radius: 5px;
         font-weight: 600;
@@ -151,7 +158,7 @@
     }
 
     /* 登录按钮点击时透明度为80% */
-    .box form input[type='submit']:active {
+    .box form input[type="submit"]:active {
         opacity: 0.8;
     }
 
@@ -185,13 +192,13 @@
         height: 420px;
         /* 使用线性渐变作为伪元素的背景样式。渐变采用了透明到非透明的过渡，具体颜色值会根据动画来变化。 */
         background: linear-gradient(0deg, transparent, transparent, #45f3ff, #45f3ff, #45f3ff);
-        z-index: 1; /*设置伪元素的层级为 1，使其位于正常文档流之上。位于其他大于一的效果之下从而辅助形成一条线的效果*/
-        transform-origin: bottom right; /*控制元素的旋转、缩放和倾斜等变换效果的起始位置 从右下开始从而形成逆时针效果bottom right*/
+        z-index: 1; /* 设置伪元素的层级为 1，使其位于正常文档流之上。位于其他大于 1 的效果之下从而辅助形成一条线的效果 */
+        transform-origin: bottom right; /* 控制元素的旋转、缩放和倾斜等变换效果的起始位置 从右下开始从而形成逆时针效果bottom right */
         animation: animate 6s linear infinite;
     }
 
     .box::after {
-        animation-delay: -3s; /*动画开始前延迟*/
+        animation-delay: -3s; /* 动画开始前延迟 */
     }
 
     .borderLine::before {
@@ -212,8 +219,8 @@
 
 {% if flash_msg %}
 <script type="application/javascript">
+    // 结合闪存信息生成跨页面的提示
     document.addEventListener("DOMContentLoaded", () => {
-        // 初始化 Toast
         const toastElement = document.getElementById("error-toast");
         const toastBody = toastElement.querySelector(".toast-body");
         const toast = new bootstrap.Toast(toastElement, {autohide: false});
@@ -224,38 +231,64 @@
 </script>
 {% endif %}
 
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+        <div class="navbar-brand text-white user-select-none">GPA查询</div>
+        <div class="navbar-nav">
+            <div class="nav-item">
+                <button class="btn btn-danger me-2" id="shutdown-button">关闭程序</button>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <div class="alert alert-dismissible fade show d-none" id="shutdown-alert-placeholder-content" role="alert"></div>
+</div>
+
 <!-- 搭建基本结构 -->
-<div class="box">
-    <span class="borderLine"></span>
-    <!-- 用form提交 -->
-    <form id="query-form" method="post">
-        <div class="inputBox">
-            <!-- required表示文本框必须输入内容,否则则在提交的时候默认提示 -->
-            <input type="text" id="account" name="account" required>
-            <!-- 用一个i元素勾画出来一条线，改变其高度形成一个输入框 -->
-            <span>教务平台账号</span><i></i>
-        </div>
-        <div class="inputBox">
-            <input type="password" id="password" name="password" required>
-            <!-- 用一个i元素勾画出来一条线，改变其高度形成一个密码框 -->
-            <span>教务平台密码</span><i></i>
-        </div>
-        <input type="submit" value="查询">
-        <p class="user-select-none" style="margin-top: 30px; color:#8D939E; width: 100%; text-align: center;">
-            注：专科学生对绩点不做要求
-        </p>
-    </form>
+<div class="main-content">
+    <div class="box">
+        <span class="borderLine"></span>
+        <!-- 用form提交 -->
+        <form id="query-form" method="post">
+            <div class="inputBox">
+                <!-- required表示文本框必须输入内容,否则则在提交的时候默认提示 -->
+                <input id="account" name="account" required type="text">
+                <!-- 用一个i元素勾画出来一条线，改变其高度形成一个输入框 -->
+                <span>教务平台账号</span><i></i>
+            </div>
+            <div class="inputBox">
+                <input id="password" name="password" required type="password">
+                <!-- 用一个i元素勾画出来一条线，改变其高度形成一个密码框 -->
+                <span>教务平台密码</span><i></i>
+            </div>
+            <input type="submit" value="查询">
+            <p class="user-select-none" style="margin-top: 30px; color:#8D939E; width: 100%; text-align: center;">
+                注：专科学生对绩点不做要求
+            </p>
+        </form>
+    </div>
 </div>
 
 <script type="application/javascript">
     document.addEventListener("DOMContentLoaded", () => {
-        const form = document.getElementById("query-form");
-        const submitButton = form.querySelector(`input[type="submit"]`);
-
         // 初始化 Toast
         const toastElement = document.getElementById("error-toast");
         const toastBody = toastElement.querySelector(".toast-body");
         const toast = new bootstrap.Toast(toastElement, {autohide: false});
+
+        // 表单元素
+        const form = document.getElementById("query-form");
+        const submitButton = form.querySelector(`input[type="submit"]`);
+
+        // 基层模板中的模态框
+        const baseModal = new bootstrap.Modal(document.getElementById("base-modal"));
+        const baseTitle = document.getElementById("base-modal-title");  // 标题
+        const baseText = document.getElementById("base-modal-body-text");   // 正文
+        const baseApiSpecified = document.getElementById("base-modal-url"); // 指定后端接口
+        const baseBtn = document.getElementById("base-modal-submit");   // 确定按钮
+
 
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
@@ -289,6 +322,47 @@
             } finally {
                 submitButton.disabled = false;
                 submitButton.value = "查询";
+            }
+        });
+
+        // 关闭功能
+        const shutdownBtn = document.getElementById("shutdown-button");
+        const shutdownAlertPlaceholder = document.getElementById("shutdown-alert-placeholder-content");
+
+        shutdownBtn.addEventListener("click", () => {
+            baseTitle.textContent = "确认关闭程序吗？";
+            baseText.textContent = "是否关闭此程序？关闭后，网页将不再响应后续操作，需要重新启动程序登录后才可继续使用。";
+            baseApiSpecified.value = "/shutdown";
+            baseBtn.className = "btn btn-danger";
+            baseBtn.textContent = "确认关闭";
+            baseBtn.disabled = false;
+            baseModal.show();
+        });
+
+        baseBtn.addEventListener("click", async function () {
+            const api = baseApiSpecified.value;
+            if (api !== "/shutdown") {
+                baseModal.hide();
+                toastBody.textContent = "内部错误: 接口参数异常";
+                toast.show();
+            }
+
+            try {
+                await fetch(api, {method: "POST"});
+
+                shutdownAlertPlaceholder.textContent = "程序已成功关闭，请手动关闭此浏览器选项卡。";
+                shutdownAlertPlaceholder.classList.add("alert-danger");
+                shutdownAlertPlaceholder.classList.remove("d-none");
+
+                shutdownBtn.textContent = "程序已关闭";
+                shutdownBtn.disabled = true;
+                submitButton.disabled = true;
+                submitButton.value = "不可用";
+            } catch (error) {
+                toastBody.textContent = `发生错误: ${error.message}`;
+                toast.show();
+            } finally {
+                baseModal.hide();
             }
         });
     });
