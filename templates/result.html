@@ -51,7 +51,10 @@
                 </div>
             </div>
         </div>
-        <button class="btn btn-danger" id="shutdown-button">关闭程序</button>
+        <div class="nav-item">
+            <button class="btn btn-warning me-2" id="logout-button">退出登录</button>
+            <button class="btn btn-danger me-2" id="shutdown-button">关闭程序</button>
+        </div>
     </div>
 </nav>
 
@@ -122,12 +125,30 @@
             <div class="modal-body">
                 <div class="row col-12">
                     <p id="shutdown-confirm-text">
-                        是否关闭此程序？关闭后，网页将不再响应后续操作，需要重新启动程序登录后才可继续使用。</p>
+                        是否关闭此程序？关闭后，网页将不再响应后续操作，需要重新启动程序登录后才可继续使用。
+                    </p>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
                 <button class="btn btn-danger" id="shutdown-confirm-submit" type="button">确认关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 退出登录确认模态框 -->
+<div aria-hidden="true" aria-labelledby="logout-confirm-modal" class="modal fade" id="logout-confirm-modal"
+     tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logout-confirm-title">确认退出登录吗？</h5>
+                <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
+                <button class="btn btn-warning" id="logout-confirm-submit" type="button">确认退出</button>
             </div>
         </div>
     </div>
@@ -160,6 +181,10 @@
         <p class="text-muted">名师大讲堂、领导力、系列讲座</p>
         `;
 
+        /** 根据新的GPA数据刷新网页内容
+         * @param {object} data GPA 课程数据
+         * @return {void}
+         */
         function updatePage(data) {
             // 更新 GPA 显示
             GPADisplay.textContent = data.gpa;
@@ -225,7 +250,6 @@
 
         // 关闭功能逻辑
         const shutdownBtn = document.getElementById("shutdown-button");
-
         const confirmShutdownModal = new bootstrap.Modal(document.getElementById("shutdown-confirm-modal"));
         const confirmShutdownTitle = document.getElementById("shutdown-confirm-title");
         const confirmShutdownText = document.getElementById("shutdown-confirm-text");
@@ -263,6 +287,36 @@
                 toast.show();
 
                 shutdownBtn.disabled = false;
+                this.disabled = false;
+            }
+        });
+
+        // 退出登录逻辑
+        const logoutBtn = document.getElementById("logout-button");
+        const confirmLogoutModal = new bootstrap.Modal(document.getElementById("logout-confirm-modal"));
+        const confirmLogoutTitle = document.getElementById("logout-confirm-title");
+        const confirmLogoutBtn = document.getElementById("logout-confirm-submit");
+
+        logoutBtn.addEventListener("click", () => {
+            confirmLogoutTitle.textContent = "确认退出登录吗？";
+            confirmLogoutBtn.textContent = "确认退出";
+            confirmLogoutBtn.disabled = false;
+            confirmLogoutModal.show();
+        });
+
+        confirmLogoutBtn.addEventListener("click", async function () {
+            this.disabled = true;
+            this.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>正在退出...`;
+
+            try {
+                await fetch("/logout", {method: "POST"});
+                window.location.href = "/";
+            } catch (error) {
+                confirmLogoutModal.hide();
+
+                toastBody.textContent = `退出失败: ${error.message}`;
+                toast.show();
+
                 this.disabled = false;
             }
         });

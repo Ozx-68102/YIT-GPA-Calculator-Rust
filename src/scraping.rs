@@ -11,11 +11,11 @@ use lazy_static::lazy_static;
 use reqwest::{cookie::Cookie, header::{HeaderMap, HeaderValue}, Client};
 use rust_decimal::Decimal;
 use scraper::{Html, Selector};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 
-// 每次程序启动都随机加载一个 UA
+// 每次程序启动都随机加载一个 UA, 由于后续需要更改此内容, 故此处使用互斥锁
 lazy_static! {
-    pub static ref USER_AGENT: &'static str = get_rua();
+    pub static ref USER_AGENT: Mutex<String> = Mutex::new(get_rua().to_string());
 }
 
 // 教务处网站结构体
@@ -34,10 +34,17 @@ impl AAOWebsite {
 
         // 创建客户端实例, `?`表示失败就返回错误, 类似隔壁的 raise
         // 需要启动 cookie 储存
-        let client = Client::builder()
-            .user_agent(*USER_AGENT)    // 设置 UA
-            .cookie_store(true) // 自动处理 Cookie
-            .build()?;
+        let client = {
+            let user_agent_guard = USER_AGENT.lock().unwrap();
+
+            #[cfg(debug_assertions)]
+            print_info(&format!("UA 已被设置为: {}", user_agent_guard.clone()));
+
+            Client::builder()
+                .user_agent(user_agent_guard.clone())    // 设置 UA
+                .cookie_store(true) // 自动处理 Cookie
+                .build()?
+        };
 
         // cfg(debug_assertions) 表示下方紧贴着的内容只在 dev 模式下出现
         #[cfg(debug_assertions)]

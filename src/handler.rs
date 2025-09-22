@@ -2,7 +2,7 @@
 use crate::{
     business::{calculate_gpa_from_list, print_error, print_info, GPAMode},
     models::{Course, WebError},
-    scraping::AAOWebsite,
+    scraping::{AAOWebsite, USER_AGENT},
     Asset,
 };
 
@@ -13,6 +13,7 @@ use axum::{
     Extension,
     Json
 };
+use fake_user_agent::get_rua;
 use mime_guess;
 
 // 反序列化解析表单数据, 类似隔壁的 request.form
@@ -179,8 +180,34 @@ pub async fn show_next_result(session: Session, Json(cal_mode): Json<CalculateMo
     Ok(Json(json!({"gpa": gpa, "courses": course_final_list})))
 }
 
+// 关闭服务器
 pub async fn shutdown_handler(Extension(shutdown_tx): Extension<broadcast::Sender<()>>) -> (StatusCode, &'static str) {
     let _ = shutdown_tx.send(());
 
     (StatusCode::OK, "服务器正在关闭...")
+}
+
+// 退出登录
+pub async fn logout_handler(session: Session) -> Result<Json<serde_json::Value>, WebError> {
+    session.delete().await.map_err(|e| WebError::InternalError(e.to_string()))?;
+
+    print_info("用户退出登录, 会话已销毁");
+
+    // 创建变量遮蔽来确保锁能被尽快释放
+    {
+        // 获取互斥锁
+        let mut user_agent_guard = USER_AGENT.lock().unwrap();
+
+        // 生成新 UA
+        let new_user_agent = get_rua().to_string();
+
+        // 使用星号(*)解引用修改在锁保护下的数据
+        *user_agent_guard = new_user_agent.clone();
+
+        #[cfg(debug_assertions)]
+        print_info(&format!("UA 已被刷新: {}", new_user_agent.clone()));
+    }
+    // 超出遮蔽区域, 锁被释放
+
+    Ok(Json(json!({"success": true})))
 }
