@@ -152,7 +152,7 @@ pub async fn show_first_result(session: Session, State(tera): State<Tera>) -> Re
         #[cfg(debug_assertions)]
         print_error("Session 中未找到数据, 将重定向到登录页");
 
-        session.insert("flash_msg", "会话状态异常。").await.map_err(|e| WebError::InternalError(e.to_string()))?;
+        session.insert("flash_msg", "请先登录以获取绩点数据。").await.map_err(|e| WebError::InternalError(e.to_string()))?;
 
         Ok(Redirect::to("/").into_response())
     }
@@ -191,7 +191,7 @@ pub async fn shutdown_handler(Extension(shutdown_tx): Extension<broadcast::Sende
 pub async fn logout_handler(session: Session) -> Result<Json<serde_json::Value>, WebError> {
     session.delete().await.map_err(|e| WebError::InternalError(e.to_string()))?;
 
-    print_info("用户退出登录, 会话已销毁");
+    print_info("用户退出登录, Session 会话已销毁");
 
     // 创建变量遮蔽来确保锁能被尽快释放
     {
