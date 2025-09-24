@@ -5,12 +5,45 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::Local;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use serde::{Deserialize, Serialize};
 
+pub const PERMANENT_IGNORED_COURSES: &[&str] = &["入学教育"];
+pub const NATURE_EXCLUSIONS: &[&str] = &["公共选修课", "通识教育选修"];
+pub const EXCLUDED_COURSES_KEYWORD: &[&str] = &[
+    "体育", "职业生涯规划与就业指导", "大学生安全教育", "大学生心理健康教育",
+    "形势与政策", "军事理论", "军事训练", "军事技能", "创新创业教育",
+    "劳动教育", "专业基础认知", "毕业教育", "社会实践", "社会调研",
+    "综合实训", "综合设计与展示", "职场体验", "实习", "见习",
+    "名师大讲堂", "领导力", "系列讲座"
+];
 
-pub enum GPAMode {
+// 绩点计算模式
+enum GPAMode {
     Default,    // 默认模式 - 排除部分课程 GPA
     All,         // 完全模式 - 计算所有课程 GPA
 }
+
+// 数据来源
+pub enum ResultSource {
+    OfficialWebsite,    // 登录获取
+    InputFile,   // 导入文件计算
+}
+
+// 绩点计算信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GPAResult {
+    pub gpa: Decimal,
+    pub courses: Vec<Course>,
+}
+
+// 不同模式的绩点计算信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessedGPAResults {
+    pub default: Option<GPAResult>, // 可能不存在
+    pub all: GPAResult,  // 必定存在
+}
+
+
 
 /// base64 编码
 pub fn b64_encode(text: &str) -> String {
@@ -73,30 +106,19 @@ fn current_time() -> String {
 
 
 /// 计算GPA
-pub fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, Vec<Course>) {
-    const PERMANENT_IGNORED_COURSES: &[&str] = &["入学教育"];
-
+fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, Vec<Course>) {
     let courses: Vec<Course> = courses
         .iter()
         .filter(|c| !PERMANENT_IGNORED_COURSES.contains(&c.name.as_str()))
         .cloned()
         .collect();
 
-    const NATURE_EXCLUSIONS: &[&str] = &["公共选修课", "通识教育选修"];
-
-    const EXCLUDED_COURSES_KEYWORD: &[&str] = &[
-        "体育", "职业生涯规划与就业指导", "大学生安全教育", "大学生心理健康教育",
-        "形势与政策", "军事理论", "军事训练", "军事技能", "创新创业教育",
-        "劳动教育", "专业基础认知", "毕业教育", "社会实践", "社会调研",
-        "综合实训", "综合设计与展示", "职场体验", "实习", "见习",
-        "名师大讲堂", "领导力", "系列讲座"
-    ];
-
     let courses_to_use: Vec<Course> = match mode {
         GPAMode::Default => {
             courses.iter()
                 .filter(|c|
-                    !EXCLUDED_COURSES_KEYWORD.iter().any(|k| c.name.contains(k)) && !NATURE_EXCLUSIONS.contains(&c.nature.as_str())
+                    !EXCLUDED_COURSES_KEYWORD.iter().any(|k| c.name.contains(k))
+                        && !NATURE_EXCLUSIONS.contains(&c.nature.as_str())
                 ).cloned().collect()
         }
         GPAMode::All => { courses.to_vec() }
@@ -104,7 +126,6 @@ pub fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, V
 
     let total_credits: Decimal = courses_to_use.iter().map(|c| c.credit).sum();
     let total_cg: Decimal = courses_to_use.iter().map(|c| c.credit_gpa).sum();
-
     let gpa = if total_credits > Decimal::ZERO {
         round_2decimal(total_cg / total_credits)
     } else {
@@ -112,6 +133,30 @@ pub fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, V
     };
 
     (gpa, courses_to_use)
+}
+
+pub fn process_scraped_course_results(courses: &[Course], source: ResultSource) -> ProcessedGPAResults {
+    // 先计算 All 模式的结果
+    let all_result = {
+        let (gpa_all, courses_all) = calculate_gpa_from_list(&courses, GPAMode::All);
+
+        GPAResult { gpa: gpa_all, courses: courses_all }
+    };
+
+    // 根据数据来源决定是否需要计算 Default 模式
+    let default_result = match source {
+        ResultSource::OfficialWebsite => {
+            let (gpa_default, courses_default) = calculate_gpa_from_list(&courses, GPAMode::Default);
+
+            Some(GPAResult { gpa: gpa_default, courses: courses_default })
+        }
+        ResultSource::InputFile => None
+    };
+
+    ProcessedGPAResults {
+        default: default_result,
+        all: all_result,
+    }
 }
 
 /// 格式化信息

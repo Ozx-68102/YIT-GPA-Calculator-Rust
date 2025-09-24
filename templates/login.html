@@ -236,6 +236,7 @@
         <div class="navbar-brand text-white user-select-none">GPA查询</div>
         <div class="navbar-nav">
             <div class="nav-item">
+                <button class="btn btn-success me-2" id="login-free-mode-button">免登录计算模式</button>
                 <button class="btn btn-danger me-2" id="shutdown-button">关闭程序</button>
             </div>
         </div>
@@ -278,17 +279,105 @@
         const toastBody = toastElement.querySelector(".toast-body");
         const toast = new bootstrap.Toast(toastElement, {autohide: false});
 
-        // 表单元素
-        const form = document.getElementById("query-form");
-        const submitButton = form.querySelector(`input[type="submit"]`);
-
-        // 基层模板中的模态框
+        // 普通提示型模态框元素
         const baseModal = new bootstrap.Modal(document.getElementById("base-modal"));
         const baseTitle = document.getElementById("base-modal-title");  // 标题
         const baseText = document.getElementById("base-modal-body-text");   // 正文
         const baseApiSpecified = document.getElementById("base-modal-url"); // 指定后端接口
         const baseBtn = document.getElementById("base-modal-submit");   // 确定按钮
 
+        // 上传文件型模态框元素
+        const uploadModal = new bootstrap.Modal(document.getElementById("upload-modal"));
+        const uploadTitle = document.getElementById("upload-modal-title");
+        const uploadNote = document.getElementById("upload-modal-notification");
+        const uploadFileLink = document.getElementById("upload-modal-file-link");
+        const uploadFileInput = document.getElementById("upload-modal-file");
+        const uploadErrorMsg = document.getElementById("upload-modal-error-msg");
+        const uploadApiSpecified = document.getElementById("upload-modal-url");
+        const uploadBtn = document.getElementById("upload-modal-submit");
+
+        /** 以`POST`形式传输数据
+         * @param {string} url 后端接口
+         * @param {any} data 交互数据(可为空)
+         * @return {Promise<Response>} 请求结果
+         */
+        function postData(url, data = null) {
+            if (data === null) {
+                return fetch(url, {method: "POST"});
+            } else {
+                return fetch(url, {method: "POST", body: data});
+            }
+        }
+
+        /**
+         * 重置上传文件型模态框警告窗口样式
+         */
+        function resetUploadErrMsg() {
+            uploadErrorMsg.className = "alert alert-danger alert-dismissible fade show d-none";
+            uploadErrorMsg.textContent = "";
+        }
+
+        /** 提交参数到指定后端接口
+         * @param {string} choice 后端接口
+         * @param {any} data 传给后端的数据(部分可为空)
+         * @throws Error
+         * @return Promise<void>
+         */
+        async function submitFormRequest(choice, data = null) {
+            switch (choice) {
+                case "/shutdown":
+                    if (data !== null) {
+                        throw new Error("接口数据异常");
+                    }
+
+                    const res1 = await postData(choice);
+                    if (!res1.ok) {
+                        throw new Error(await res1.text() || "未知错误");
+                    }
+
+                    shutdownAlertPlaceholder.textContent = "程序已成功关闭，请手动关闭此浏览器选项卡。";
+                    shutdownAlertPlaceholder.classList.add("alert-danger");
+                    shutdownAlertPlaceholder.classList.remove("d-none");
+
+                    shutdownBtn.textContent = "程序已关闭";
+                    shutdownBtn.disabled = true;
+                    submitButton.disabled = true;
+                    submitButton.value = "不可用";
+
+                    break;
+                case "/score-from-official-website":
+                    if (data === null) {
+                        throw new Error("接口数据异常");
+                    }
+
+                    const res2 = await postData(choice, data);
+                    if (!res2.ok) {
+                        throw new Error(await res2.text() || "未知错误");
+                    }
+
+                    window.location.href = "/result";
+                    break;
+
+                case "/score-from-file":
+                    if (data === null) {
+                        throw new Error("接口数据异常");
+                    }
+
+                    const res3 = await postData(choice, data);
+                    if (!res3.ok) {
+                        throw new Error(await res3.text() || "未知错误");
+                    }
+
+                    window.location.href = "/result";
+                    break;
+                default:
+                    throw new Error("接口参数异常");
+            }
+        }
+
+        // 提交登录凭据
+        const form = document.getElementById("query-form");
+        const submitButton = form.querySelector(`input[type="submit"]`);
 
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
@@ -304,20 +393,9 @@
             formData.append("password", password);
 
             try {
-                const response = await fetch("/score", {
-                    method: "POST",
-                    body: formData
-                });
-
-                if (response.ok) {
-                    window.location.href = "/result";
-                } else {
-                    const errorMsg = await response.text();
-                    toastBody.textContent = errorMsg || "未知错误";
-                    toast.show();
-                }
+                await submitFormRequest("/score-from-official-website", formData);
             } catch (error) {
-                toastBody.textContent = `意外异常: ${error.message}`;
+                toastBody.textContent = error.message || "意外异常";
                 toast.show();
             } finally {
                 submitButton.disabled = false;
@@ -339,30 +417,65 @@
             baseModal.show();
         });
 
+        // 普通提示型模板点击
         baseBtn.addEventListener("click", async function () {
             const api = baseApiSpecified.value;
-            if (api !== "/shutdown") {
-                baseModal.hide();
-                toastBody.textContent = "内部错误: 接口参数异常";
-                toast.show();
-            }
-
             try {
-                await fetch(api, {method: "POST"});
-
-                shutdownAlertPlaceholder.textContent = "程序已成功关闭，请手动关闭此浏览器选项卡。";
-                shutdownAlertPlaceholder.classList.add("alert-danger");
-                shutdownAlertPlaceholder.classList.remove("d-none");
-
-                shutdownBtn.textContent = "程序已关闭";
-                shutdownBtn.disabled = true;
-                submitButton.disabled = true;
-                submitButton.value = "不可用";
+                await submitFormRequest(api);
             } catch (error) {
                 toastBody.textContent = `发生错误: ${error.message}`;
                 toast.show();
             } finally {
                 baseModal.hide();
+            }
+        });
+
+        // 免登录
+        const loginFreeBtn = document.getElementById("login-free-mode-button");
+
+        loginFreeBtn.addEventListener("click", () => {
+            uploadTitle.textContent = "免登录计算模式";
+            uploadNote.textContent = "请下载模板填写后上传，系统将以此计算GPA绩点。注意结果不会被保存。";
+            uploadFileLink.href = "/download-template";
+            uploadApiSpecified.value = "/score-from-file";
+            resetUploadErrMsg();
+            uploadBtn.textContent = "确认上传";
+            uploadBtn.disabled = false;
+            uploadModal.show();
+        });
+
+        // 只要有上传操作就关闭提示框
+        uploadFileInput.addEventListener("change", () => {
+            uploadBtn.disabled = false;
+            resetUploadErrMsg();
+        });
+
+        uploadBtn.addEventListener("click", async function () {
+            const file = uploadFileInput.files[0];
+
+            if (!file) {
+                uploadErrorMsg.textContent = "请先选择一个文件";
+                uploadErrorMsg.classList.remove("d-none");
+                this.disabled = true;
+                return false;
+            }
+
+            this.disabled = true;
+            this.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>上传中...`;
+
+            try {
+                const api = uploadApiSpecified.value;
+                const formData = new FormData();
+                formData.append("gpa_file", file);
+
+                await submitFormRequest(api, formData);
+            } catch (error) {
+                toastBody.textContent = `发生错误: ${error.message}`;
+                toast.show();
+            } finally {
+                uploadModal.hide();
+                this.textContent = "确认上传";
+                this.disabled = false;
             }
         });
     });

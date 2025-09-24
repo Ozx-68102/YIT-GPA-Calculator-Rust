@@ -28,7 +28,7 @@
     </div>
 </div>
 
-<!-- Modal 模态框 -->
+<!-- Modal 模态框(普通提示型) -->
 <div aria-hidden="true" aria-labelledby="base-modal" class="modal fade" id="base-modal"
      tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" role="document">
@@ -46,6 +46,51 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
                 <button class="btn" id="base-modal-submit" type="button"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 模态框(上传文件型) -->
+<div aria-hidden="true" aria-labelledby="upload-modal" class="modal fade" id="upload-modal"
+     tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="upload-modal-title"></h5>
+                <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="alert alert-danger alert-dismissible fade show d-none" id="upload-modal-error-msg"
+                             role="alert"></div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <p id="upload-modal-notification"></p>
+                    </div>
+                </div>
+                <div class="row">
+                    <h6 class="col-3">模板下载:</h6>
+                    <div class="col-9">
+                        <a class="btn btn-info" href="#" id="upload-modal-file-link" target="_blank">下载</a>
+                    </div>
+                </div>
+                <div class="row py-5">
+                    <h6 class="col-3">上传文件:</h6>
+                    <div class="col-9">
+                        <input accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                               class="form-control" id="upload-modal-file"
+                               name="upload-modal-file" required type="file"/>
+                    </div>
+                </div>
+            </div>
+            <input id="upload-modal-url" type="hidden">
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
+                <button class="btn btn-primary" id="upload-modal-submit" type="button">确认上传</button>
             </div>
         </div>
     </div>

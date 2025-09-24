@@ -6,6 +6,7 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tower_sessions::session::Error as SessionError;
 
 // 课程信息结构体
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +35,16 @@ pub enum WebScrapingError {
     ParseError(String)
 }
 
+// 文件异常
+#[derive(Debug, Error)]
+pub enum FileError {
+    #[error("无法打开或解析上传的文件: {0}")]
+    OpenError(String),
+
+    #[error("上传的文件中未找到有效的课程数据, 请检查文件内容和格式是否正确。")]
+    NoValidDataFound,
+}
+
 // 网页服务异常
 #[derive(Debug, Error)]
 pub enum WebError {
@@ -42,6 +53,12 @@ pub enum WebError {
 
     #[error("网页爬取错误: {0}")]
     WebScrapingError(#[from] WebScrapingError),
+
+    #[error("文件错误: {0}")]
+    FileError(#[from] FileError),
+
+    #[error("会话错误: {0}")]
+    SessionError(#[from] SessionError),
 
     #[error("内部错误: {0}")]
     InternalError(String)
@@ -65,6 +82,14 @@ impl IntoResponse for WebError {
                     scraper_err.to_string()
                 )
             },
+            WebError::FileError(msg) => (
+                StatusCode::BAD_REQUEST,
+                msg.to_string()
+            ),
+            WebError::SessionError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("会话错误: {}", msg)
+            ),
             WebError::InternalError(msg) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("内部错误: {}", msg)

@@ -40,19 +40,38 @@
 {% endblock style %}
 
 {% block body %}
+<script id="course-rules-data" type="application/json">
+    {
+        "excluded_courses": {{
+        excluded_courses
+        |
+        json_encode(pretty=false)
+        |
+        safe
+    }},
+    "permanent_ignored_courses": {
+    {
+    permanent_ignored_courses | json_encode(pretty=true) | safe }},
+    "nature_exclusions": {{nature_exclusions | json_encode(pretty=false) | safe}}
+    }
+</script>
+
+
 <nav class="navbar navbar-expand-lg bg-body-tertiary">
     <div class="container-fluid">
         <div class="navbar-brand user-select-none">GPA查询</div>
-        <div class="navbar-nav">
-            <div class="nav-item">
-                <div class="form-check form-switch d-inline-block">
-                    <input class="form-check-input" id="gpa-mode-switch" role="switch" type="checkbox">
-                    <label class="form-check-label" for="gpa-mode-switch">计算全部课程</label>
-                </div>
+        <div class="nav-item">
+            <div class="form-check form-switch d-inline-block">
+                {% if result_mode == "login" %}
+                <input class="form-check-input" id="gpa-mode-switch" role="switch" type="checkbox">
+                <label class="form-check-label" for="gpa-mode-switch">计算全部课程</label>
+                {% else %}
+                <h5>免登录模式</h5>
+                {% endif %}
             </div>
         </div>
         <div class="nav-item">
-            <button class="btn btn-warning me-2" id="logout-button">退出登录</button>
+            <button class="btn btn-warning me-2" id="logout-button">注销此会话</button>
             <button class="btn btn-danger me-2" id="shutdown-button">关闭程序</button>
         </div>
     </div>
@@ -70,19 +89,9 @@
                 <h2 class="fw-bold text-danger" id="gpa-display">{{ gpa }}</h2>
             </div>
 
-            <div class="text-center mb-4 p-3 border rounded" id="excluded-courses-notice">
-                <h2>不计入绩点计算的课程:</h2>
-                <p class="text-muted">
-                    公选课、体育、通识教育选修课、职业生涯规划与就业指导、大学生安全教育、大学生心理健康教育、</p>
-                <p class="text-muted">
-                    形势与政策、军事理论、军事训练、创新创业教育、劳动教育、专业基础认知、入学教育、毕业教育、</p>
-                <p class="text-muted">社会实践、社会调研、综合实训、综合设计与展示、职场体验、</p>
-                <p class="text-muted">实习（如金工实习，认知实习,
-                    电工电子实习，毕业实习等）、见习（如教育见习，专业见习等）、</p>
-                <p class="text-muted">名师大讲堂、领导力、系列讲座</p>
-            </div>
+            <div class="text-center mb-4 p-3 border rounded" id="excluded-courses-notice"></div>
         </div>
-        <h3 class="text-danger">仅供参考，实际情况以教务处为准</h3>
+        <h3 class="fw-bold text-danger">绩点与计算规则仅供参考，实际情况请以教务处数据为准</h3>
     </div>
 
     <div>
@@ -127,20 +136,40 @@
         const tableBody = document.getElementById("result-table-body");
         const excludedCoursesNotice = document.getElementById("excluded-courses-notice");
 
-        const noticeForAllMode = `
-        <h2>不计入绩点计算的课程:</h2>
-        <p class="text-muted">入学教育（0学分）</p>
-        `;
-        const noticeForDefaultMode = `
-        <h2>不计入绩点计算的课程:</h2>
-        <p class="text-muted">公选课、体育、通识教育选修课、职业生涯规划与就业指导、大学生安全教育、大学生心理健康教育、</p>
-        <p class="text-muted">形势与政策、军事理论、军事训练、创新创业教育、劳动教育、专业基础认知、入学教育、毕业教育、</p>
-        <p class="text-muted">社会实践、社会调研、综合实训、综合设计与展示、职场体验、</p>
-        <p class="text-muted">实习（如金工实习，认知实习, 电工电子实习，毕业实习等）、见习（如教育见习，专业见习等）、</p>
-        <p class="text-muted">名师大讲堂、领导力、系列讲座</p>
-        `;
+        // 业务规则
+        const courseRules = JSON.parse(document.getElementById("course-rules-data").textContent);
 
-        /** 根据新的GPA数据刷新网页内容
+        /**
+         * 根据模式和后端提供的规则动态渲染提示区域
+         * @param {string} mode `default` 或 `all`
+         * @return {void}
+         */
+        function renderNotice(mode) {
+            let titleHTML = "<h2>不计入绩点计算的课程:</h2>";
+            let contentHTML;
+
+            if (mode === "all") {
+                contentHTML = courseRules.permanent_ignored_courses.map((name) => `<span class="badge bg-secondary fs-6 px-3">${name}</span>`).join(" ").replace("入学教育", "入学教育 (0学分)");
+            } else {
+                const allExclusions = [
+                    ...courseRules.nature_exclusions,
+                    ...courseRules.excluded_courses,
+                    ...courseRules.permanent_ignored_courses
+                ];
+                const uniqueExclusions = [...new Set(allExclusions)];
+                contentHTML = uniqueExclusions.map((name) => `<span class="badge bg-secondary fs-6 px-3">${name}</span>`).join(" ").replace("入学教育", "入学教育 (0学分)");
+            }
+
+            excludedCoursesNotice.innerHTML = `
+            ${titleHTML}
+            <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
+                ${contentHTML || "<span class='text-muted small'>无</span>"}
+            </div>
+            `;
+        }
+
+
+        /** 开关存在时, 根据新的GPA数据刷新网页内容
          * @param {object} data GPA 课程数据
          * @return {void}
          */
@@ -148,12 +177,7 @@
             // 更新 GPA 显示
             GPADisplay.textContent = data.gpa;
 
-            // 更新提示文字的显示状态
-            if (modeSwitch.checked) {
-                excludedCoursesNotice.innerHTML = noticeForAllMode;
-            } else {
-                excludedCoursesNotice.innerHTML = noticeForDefaultMode;
-            }
+            renderNotice(modeSwitch.checked ? "all" : "default");
 
             // 加载课程表格
             tableBody.innerHTML = "";   // 先清空
@@ -174,45 +198,60 @@
             }
         }
 
-        // GPA 切换开关状态是否被改变 / 是否被选中
-        modeSwitch.addEventListener("change", async () => {
-            const isChecked = modeSwitch.checked;
-            const mode = isChecked ? "all" : "default";
+        // GPA 切换开关状态是否被改变 / 是否被选中 (前提是开关存在)
+        if (modeSwitch) {
+            modeSwitch.addEventListener("change", async () => {
+                const isChecked = modeSwitch.checked;
+                const mode = isChecked ? "all" : "default";
 
-            // 显示加载状态
-            GPADisplay.textContent = "计算中...";
-            tableBody.innerHTML = `<tr><td colspan="6">正在重新计算...</td></tr>`;
+                // 显示加载状态
+                GPADisplay.textContent = "计算中...";
+                tableBody.innerHTML = `<tr><td colspan="6">正在重新计算...</td></tr>`;
 
-            try {
-                const response = await fetch("/recalc", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({mode: mode})
-                });
+                try {
+                    const response = await fetch("/recalc", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({mode: mode})
+                    });
 
-                if (!response.ok) {
-                    const errorMsg = await response.text();
-                    toastBody.textContent = errorMsg || "未知错误";
-                    toast.show()
-                    return false;
+                    if (!response.ok) {
+                        const errorMsg = await response.text();
+                        toastBody.textContent = errorMsg || "未知错误";
+                        toast.show()
+                        return false;
+                    }
+
+                    const data = await response.json();
+                    updatePage(data);
+                } catch (error) {
+                    GPADisplay.textContent = "计算失败";
+                    tableBody.innerHTML = `<tr><td colspan="6" class="text-danger">计算失败</td></tr>`;
+                    toastBody.textContent = `意外异常: ${error.message}`;
+                    toast.show();
                 }
+            });
+        }
 
-                const data = await response.json();
-                updatePage(data);
-            } catch (error) {
-                GPADisplay.textContent = "计算失败";
-                tableBody.innerHTML = `<tr><td colspan="6" class="text-danger">计算失败</td></tr>`;
-                toastBody.textContent = `意外异常: ${error.message}`;
-                toast.show();
-            }
-        });
-
-        // 调用基层模板中的模态框
+        // 普通提示型模态框元素
         const baseModal = new bootstrap.Modal(document.getElementById("base-modal"));
         const baseTitle = document.getElementById("base-modal-title");  // 标题
         const baseText = document.getElementById("base-modal-body-text");   // 正文
         const baseApiSpecified = document.getElementById("base-modal-url"); // 指定后端接口
         const baseBtn = document.getElementById("base-modal-submit");   // 确定按钮
+
+        /** 以`POST`形式传输数据
+         * @param {string} url 后端接口
+         * @param {any} data 交互数据(可为空)
+         * @return {Promise<Response>} 请求结果
+         */
+        function postData(url, data = null) {
+            if (data === null) {
+                return fetch(url, {method: "POST"});
+            } else {
+                return fetch(url, {method: "POST", body: data});
+            }
+        }
 
         /** 提交参数到指定后端接口
          * @param {string} choice 后端接口
@@ -220,22 +259,25 @@
          * @return {Promise<void>}
          */
         async function submitModalRequest(choice) {
-            if (!["/shutdown", "/logout"].includes(choice)) {
-                throw new Error("内部错误: 接口参数异常");
-            }
+            switch (choice) {
+                case "/shutdown":
+                    await postData(choice);
 
-            await fetch(choice, {method: "POST"});
+                    shutdownAlertPlaceholder.textContent = "程序已成功关闭，请手动关闭此浏览器选项卡。";
+                    shutdownAlertPlaceholder.classList.add("alert-danger");
+                    shutdownAlertPlaceholder.classList.remove("d-none");
 
-            if (choice === "/shutdown") {
-                shutdownAlertPlaceholder.textContent = "程序已成功关闭，请手动关闭此浏览器选项卡。";
-                shutdownAlertPlaceholder.classList.add("alert-danger");
-                shutdownAlertPlaceholder.classList.remove("d-none");
+                    shutdownBtn.textContent = "程序已关闭";
+                    shutdownBtn.disabled = true;
+                    modeSwitch.disabled = true;
 
-                shutdownBtn.textContent = "程序已关闭";
-                shutdownBtn.disabled = true;
-                modeSwitch.disabled = true;
-            } else { // 在本页目前不是关闭程序就是注销登录状态
-                window.location.href = "/";
+                    break;
+                case "/logout":
+                    await postData(choice);
+                    window.location.href = "/";
+                    break;
+                default:
+                    throw new Error("内部错误: 接口参数异常");
             }
         }
 
@@ -267,18 +309,22 @@
             baseModal.show();
         });
 
-        // 退出登录
+        // 注销会话
         const logoutBtn = document.getElementById("logout-button");
 
         logoutBtn.addEventListener("click", () => {
-            baseTitle.textContent = "确认退出登录吗？";
-            baseText.textContent = "将注销此会话，需重新登录以查询绩点。";
+            baseTitle.textContent = "确认注销会话吗？";
+            baseText.textContent = "将清除当前网页数据回到登录页。";
             baseApiSpecified.value = "/logout";
             baseBtn.className = "btn btn-warning";
-            baseBtn.textContent = "确认退出";
+            baseBtn.textContent = "确认";
             baseBtn.disabled = false;
             baseModal.show();
         });
+
+        // 页面初始化
+        const initialMode = modeSwitch ? "default" : "all";
+        renderNotice(initialMode);
     });
 </script>
 {% endblock body %}
