@@ -1,5 +1,8 @@
 // 纯路由层
-use crate::handler::{download_temp, first_result, login, logout, next_result, score_from_file, score_from_official, shutdown, static_file};
+use crate::handler::{
+    download_temp, first_result, login, logout,
+    next_result, score_from_file, score_from_official, shutdown, static_file
+};
 
 use axum::{routing::{get, post}, Router};
 use tera::Tera;
