@@ -24,11 +24,20 @@ GPA（平均学分绩点）及课程成绩查询系统。它旨在提供一个**
 ## 🛠️ 技术栈
 
 - **核心语言：** Rust
-- **Web 框架：** Axum
-- **HTTP 客户端：** Reqwest
-- **模板引擎：** Tera
-- **嵌入资源：** `rust-embed` (用于将 HTML 模板打包进 `.exe` 文件)
+- **后端 Web 框架：** Axum
+- **前端 UI 框架：** Bootstrap 5 (负责页面的布局和UI组件)
 - **异步运行时：** Tokio
+- **HTTP 客户端：** Reqwest
+- **HTML 解析：** `scraper` (基于 CSS 选择器提取网页数据)
+- **Excel 解析：** `calamine` (用于读取 `.xlsx` 文件内容)
+- **模板引擎：** Tera
+- **资源嵌入：** `rust-embed` (用于将所有前端和静态资源打包进 `.exe` 文件)
+- **会话管理：** `tower-sessions` & `tower-cookies` (用于实现登录状态保持和跨页面通信)
+- **数据序列化：** `serde` (用于处理 JSON 数据和会话存储)
+- **高精度计算：** `rust_decimal` (用于避免 GPA 计算中的浮点数误差)
+- **错误处理：** `anyhow` & `thiserror` (提供了健壮、清晰的错误管理)
+- **并发处理：** `std::sync::Mutex` (用于实现线程安全的可变全局状态)
+- **跨平台工具：** `webbrowser` (用于在程序启动时自动打开用户的默认浏览器)
 
 
 
