@@ -42,7 +42,7 @@
 {% block body %}
 <script id="course-rules-data" type="application/json">
     {
-        "excluded_courses": {{ excluded_courses_keyword | json_encode(pretty=false) | safe }},
+        "excluded_courses": {{ excluded_courses | json_encode(pretty=false) | safe }},
         "permanent_ignored_courses": {{ permanent_ignored_courses | json_encode(pretty=false) | safe }}, 
         "nature_exclusions": {{ nature_exclusions | json_encode(pretty=false) | safe }}
     }
