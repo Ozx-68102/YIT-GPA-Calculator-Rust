@@ -4,7 +4,6 @@
 
 {% block style %}
 <style>
-
     * {
         /* 清除默认样式 */
         margin: 0;
@@ -14,7 +13,7 @@
     }
 
     body {
-        /* 简化 body 样式，只保留背景色 */
+        /* 简化 body 样式, 只保留背景色 */
         background: #222;
     }
 
@@ -22,18 +21,20 @@
         background: #222;
     }
 
-    /* 新增一个 main-content 容器，将居中样式移到这里 */
+    /* 新增一个 main-content 容器, 将居中样式移到这里 */
     .main-content {
         display: flex;
         justify-content: center;
         align-items: center;
         flex-grow: 1; /* 让这个容器尝试占据所有剩余的垂直空间 */
-        min-height: 75vh; /* 确保在内容少时也能撑满屏幕，给 navbar 留出一些空间 */
+        min-height: 75vh; /* 确保在内容少时也能撑满屏幕, 给 navbar 留出一些空间 */
     }
 
     .box {
-        /* 对整个盒子进行设置 超出部分隐藏用于最后的效果,并且相对定位相对于原本的位置进行定位,以便于子元素根据父元素的位置
-        进行定位  子决父向 */
+        /* 
+            对整个盒子进行设置. 超出部分隐藏用于最后的效果, 并且相对定位相对于原本的位置进行定位, 以便于子元素根据父元素的位置进行定位
+            子决父向
+        */
         overflow: hidden;
         position: relative;
         width: 380px;
@@ -45,23 +46,27 @@
     /* 对from进行样式设置 进行绝对定位,相对于上面的box进行定位, */
     .box form {
         position: absolute;
-        inset: 4px; /*定位元素边框或内边距的简写属性 设置所有方向的边距为4px 没啥用 */
+        inset: 4px; /* 定位元素边框或内边距的简写属性 设置所有方向的边距为4px 没啥用 */
         background: #222;
         padding: 50px 40px;
         border-radius: 8px;
         z-index: 2;
-        /* 用于控制元素在垂直层叠顺序中的显示级别 较大的值表示元素在堆叠顺序中更靠前，
-               即位于上层；较小的值表示元素在堆叠顺序中更靠后，即位于下层。 */
+        /*
+            用于控制元素在垂直层叠顺序中的显示级别 较大的值表示元素在堆叠顺序中更靠前, 即位于上层;
+            较小的值表示元素在堆叠顺序中更靠后, 即位于下层
+        */
         display: flex;
         flex-direction: column;
-        /*flex换轴 容器内的元素将在垂直方向上从上至下排列，
-                主轴方向为垂直方向。这意味着元素将在垂直方向上按照从上到下的顺序进行布局，而不是默认的水平方向。*/
+        /*
+            flex换轴
+            容器内的元素将在垂直方向上从上至下排列, 主轴方向为垂直方向。这意味着元素将在垂直方向上按照从上到下的顺序进行布局, 而不是默认的水平方向
+        */
     }
 
     .box form h2 {
         color: #fff;
         font-weight: 500;
-        text-align: center; /*加粗文字居中 */
+        text-align: center; /* 加粗文字居中 */
         letter-spacing: 0.1em; /* 制文本中字符之间的间距为0.1em 属性应用于 <p>、<h> 以及 <span> 元素*/
     }
 
@@ -83,7 +88,7 @@
         box-shadow: none; /* 阴影设置 */
         color: #23242a;
         font-size: 1em;
-        letter-spacing: 0.05em; /* 制文本中字符之间的间距为0.1em 属性应用于 <p>、<h> 以及 <span> 元素 */
+        letter-spacing: 0.05em; /* 制文本中字符之间的间距为 0.1em 属性. 应用于 <p>, <h> 以及 <span> 元素 */
         z-index: 10; /* 优先级设置 */
         transition: 0.3s;
     }
@@ -129,7 +134,7 @@
     .box form .links {
         display: flex;
         justify-content: space-between;
-        /* 容器内的 flex 项目在水平方向上均匀分布，项目之间的间距相等，并且最左侧和最右侧的项目紧贴容器的边界。*/
+        /* 容器内的 flex 项目在水平方向上均匀分布, 项目之间的间距相等, 并且最左侧和最右侧的项目紧贴容器的边界。*/
     }
 
     .box form .links a {
@@ -190,9 +195,9 @@
         left: -50%;
         width: 380px;
         height: 420px;
-        /* 使用线性渐变作为伪元素的背景样式。渐变采用了透明到非透明的过渡，具体颜色值会根据动画来变化。 */
+        /* 使用线性渐变作为伪元素的背景样式。渐变采用了透明到非透明的过渡, 具体颜色值会根据动画来变化。 */
         background: linear-gradient(0deg, transparent, transparent, #45f3ff, #45f3ff, #45f3ff);
-        z-index: 1; /* 设置伪元素的层级为 1，使其位于正常文档流之上。位于其他大于 1 的效果之下从而辅助形成一条线的效果 */
+        z-index: 1; /* 设置伪元素的层级为 1, 使其位于正常文档流之上。位于其他大于 1 的效果之下从而辅助形成一条线的效果 */
         transform-origin: bottom right; /* 控制元素的旋转、缩放和倾斜等变换效果的起始位置 从右下开始从而形成逆时针效果bottom right */
         animation: animate 6s linear infinite;
     }
@@ -202,13 +207,13 @@
     }
 
     .borderLine::before {
-        /* 使用线性渐变作为伪元素的背景样式。渐变采用了透明到非透明的过渡，具体颜色值会根据动画来变化。 */
+        /* 使用线性渐变作为伪元素的背景样式。渐变采用了透明到非透明的过渡, 具体颜色值会根据动画来变化。 */
         background: linear-gradient(0deg, transparent, transparent, #ff2770, #ff2770, #ff2770);
         animation-delay: -1.5s; /*动画开始前延迟*/
     }
 
     .borderLine::after {
-        /* 使用线性渐变作为伪元素的背景样式。渐变采用了透明到非透明的过渡，具体颜色值会根据动画来变化。 */
+        /* 使用线性渐变作为伪元素的背景样式。渐变采用了透明到非透明的过渡, 具体颜色值会根据动画来变化。 */
         background: linear-gradient(0deg, transparent, transparent, #ff2770, #ff2770, #ff2770);
         animation-delay: -4.5s;
     }
@@ -255,13 +260,15 @@
         <form id="query-form" method="post">
             <div class="inputBox">
                 <!-- required表示文本框必须输入内容,否则则在提交的时候默认提示 -->
-                <input id="account" name="account" required type="text">
-                <!-- 用一个i元素勾画出来一条线，改变其高度形成一个输入框 -->
+                <label for="account"></label>
+                <input id="account" name="account" type="text" required>
+                <!-- 用一个i元素勾画出来一条线, 改变其高度形成一个输入框 -->
                 <span>教务平台账号</span><i></i>
             </div>
             <div class="inputBox">
-                <input id="password" name="password" required type="password">
-                <!-- 用一个i元素勾画出来一条线，改变其高度形成一个密码框 -->
+                <label for="password"></label>
+                <input id="password" name="password" type="password" required>
+                <!-- 用一个i元素勾画出来一条线, 改变其高度形成一个密码框 -->
                 <span>教务平台密码</span><i></i>
             </div>
             <input type="submit" value="查询">
@@ -340,10 +347,7 @@
                     shutdownAlertPlaceholder.classList.remove("d-none");
 
                     shutdownBtn.textContent = "程序已关闭";
-                    shutdownBtn.disabled = true;
-                    submitButton.disabled = true;
-                    submitButton.value = "不可用";
-
+                    clearedAllDOM();
                     break;
                 case "/score-from-official-website":
                     if (data === null) {
@@ -378,6 +382,8 @@
         // 提交登录凭据
         const form = document.getElementById("query-form");
         const submitButton = form.querySelector(`input[type="submit"]`);
+        const accountInput = document.getElementById("account");
+        const passwordInput = document.getElementById("password");
 
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
@@ -385,12 +391,9 @@
             submitButton.disabled = true;
             submitButton.value = "查询中...";
 
-            const account = document.getElementById("account").value;
-            const password = document.getElementById("password").value;
-
             const formData = new URLSearchParams();
-            formData.append("account", account);
-            formData.append("password", password);
+            formData.append("account", accountInput.value);
+            formData.append("password", passwordInput.value);
 
             try {
                 await submitFormRequest("/score-from-official-website", formData);
@@ -478,6 +481,27 @@
                 this.disabled = false;
             }
         });
+
+        /**
+         * 禁用所有可交互元素并且清空它们的`id`, 该函数会使整个页面变得几乎不可被交互. 因此请慎用.
+         */
+        function clearedAllDOM() {
+            loginFreeBtn.disabled = true;
+            loginFreeBtn.removeAttribute("id");
+
+            shutdownBtn.disabled = true;
+            shutdownBtn.removeAttribute("id");
+
+            accountInput.disabled = true;
+            accountInput.removeAttribute("id");
+
+            passwordInput.disabled = true;
+            passwordInput.removeAttribute("id");
+
+            submitButton.disabled = true;
+            submitButton.value = "不可用";
+            shutdownBtn.removeAttribute("id");
+        }
     });
 </script>
 {% endblock body %}

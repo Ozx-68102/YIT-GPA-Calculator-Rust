@@ -129,7 +129,8 @@
         const excludedCoursesNotice = document.getElementById("excluded-courses-notice");
 
         // 业务规则
-        const courseRules = JSON.parse(document.getElementById("course-rules-data").textContent);
+        const courseRulesDOM = document.getElementById("course-rules-data");
+        const courseRules = JSON.parse(courseRulesDOM.textContent);
 
         /**
          * 根据模式和后端提供的规则动态渲染提示区域
@@ -260,9 +261,7 @@
                     shutdownAlertPlaceholder.classList.remove("d-none");
 
                     shutdownBtn.textContent = "程序已关闭";
-                    shutdownBtn.disabled = true;
-                    modeSwitch.disabled = true;
-
+                    clearedAllDOM();
                     break;
                 case "/logout":
                     await postData(choice);
@@ -313,6 +312,25 @@
             baseBtn.disabled = false;
             baseModal.show();
         });
+
+        /**
+         * 禁用所有可交互元素并且清空它们的`id`
+         */
+        function clearedAllDOM() {
+            shutdownBtn.disabled = true;
+            shutdownBtn.removeAttribute("id");
+
+            if (modeSwitch) {
+                modeSwitch.disabled = true;
+                modeSwitch.removeAttribute("id");
+            }
+
+            logoutBtn.disabled = true;
+            logoutBtn.removeAttribute("id");
+
+            courseRulesDOM.textContent = "";
+            courseRulesDOM.removeAttribute("id");
+        }
 
         // 页面初始化
         const initialMode = modeSwitch ? "default" : "all";
