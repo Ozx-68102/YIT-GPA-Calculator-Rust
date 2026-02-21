@@ -51,7 +51,7 @@ impl AAOWebsite {
         print_info(&format!("客户端实例初始化完成：{:?}", client));
 
         // 基础 Host
-        let base_host = "yitjw.yinghuaonline.com".to_string();
+        let base_host = "jw.yit.edu.cn".to_string();
 
         // 初始化请求头
         let mut init_headers = HeaderMap::new();
@@ -294,6 +294,11 @@ impl AAOWebsite {
             } else {
                 courses_record.insert(name, course);
             }
+        }
+
+        if courses_record.len() < 1 {
+            print_error("收集失败，没有解析到有效的成绩数据");
+            return Err(WebScrapingError::InvalidCourseData);
         }
 
         #[cfg(debug_assertions)]

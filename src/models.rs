@@ -33,12 +33,15 @@ pub enum WebScrapingError {
 
     #[error("解析异常：{0}")]
     ParseError(String),
-
+    
+    #[error("无效HTTP头")]
+    InvalidHeader,
+    
     #[error("网址无效或被废弃：{0}")]
     HostDeprecated(String),
 
-    #[error("无效HTTP头")]
-    InvalidHeader,
+    #[error("没有解析到有效的成绩数据")]
+    InvalidCourseData,
 }
 
 // 文件异常
