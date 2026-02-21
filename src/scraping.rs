@@ -8,7 +8,7 @@ use crate::business::print_error;
 use anyhow::Result;
 use fake_user_agent::get_rua;
 use lazy_static::lazy_static;
-use reqwest::{cookie::Cookie, header::{HeaderMap, HeaderValue}, Client};
+use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 use rust_decimal::Decimal;
 use scraper::{Html, Selector};
 use std::{collections::HashMap, sync::Mutex};
@@ -50,11 +50,20 @@ impl AAOWebsite {
         #[cfg(debug_assertions)]
         print_info(&format!("客户端实例初始化完成：{:?}", client));
 
+        // 基础 Host
+        let base_host = "yitjw.yinghuaonline.com".to_string();
+
         // 初始化请求头
         let mut init_headers = HeaderMap::new();
+
         init_headers.insert(
             "Referer",
-            HeaderValue::from_static("http://yitjw.yinghuaonline.com/yjlgxy_jsxsd/kscj/cjcx_query?Ves632DSdyV=NEW_XSD_XJCJ")
+            HeaderValue::from_str(
+                &format!(
+                    "http://{}/yjlgxy_jsxsd/kscj/cjcx_query?Ves632DSdyV=NEW_XSD_XJCJ",
+                    base_host
+                )
+            ).map_err(|_| WebScrapingError::InvalidHeader)?
         );
         init_headers.insert(
             "Content-Type",
@@ -71,7 +80,7 @@ impl AAOWebsite {
         // 用 Ok 包裹结构体则表示成功
         Ok(Self {
             client,
-            base_url: "http://yitjw.yinghuaonline.com/yjlgxy_jsxsd".to_string(),
+            base_url: format!("http://{}/yjlgxy_jsxsd", base_host),
             headers: init_headers
         })
     }
@@ -91,20 +100,37 @@ impl AAOWebsite {
 
         // 请求失败则报错并终止
         if !status_code.is_success() {
-            return Err(WebScrapingError::HttpRequest(format!("初始化失败: {}", status_code)))
+            let error_message = format!("初始化失败：{}", status_code);
+
+            #[cfg(debug_assertions)]
+            print_error(&error_message);
+
+            return Err(WebScrapingError::HttpRequest(error_message))
+        }
+
+        // 先获取 cookie, 找不到 cookie 也会报错并终止
+        // response.cookies() 返回的是迭代器, 一旦迭代器被遍历, 它就被消耗掉了(consumed & moved)
+        // 将其立刻转成不依赖 response 的自有数据, 然后收集到 Vec 中即可多次访问, 又不影响后续的 response.text()
+        let cookies: Vec<(String, String)> = response.cookies()
+            .map(|c| (c.name().to_string(), c.value().to_string()))
+            .collect();
+
+        // 逻辑上优先检测域名是否仍有效
+        let response_text = response.text().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
+        if response_text.contains("无效域名") {
+            #[cfg(debug_assertions)]
+            print_error(&format!("网址失效或被废弃，访问失败：{}", self.base_url));
+
+            return Err(WebScrapingError::HostDeprecated(self.base_url.clone().to_string())) // 直接返回网址即可
         }
 
         #[cfg(debug_assertions)]
-        print_info(&format!("访问 {} 成功！ HTTP {}。将获取 cookie", self.base_url, response.status()));
+        print_info(&format!("访问 {} 成功！ HTTP {}。将获取 cookie", self.base_url, status_code));
 
-        // 获取 cookie, 找不到 cookie 也会报错并终止
-        // response.cookies() 返回的是迭代器, 一旦迭代器被遍历, 它就被消耗掉了(consumed & moved)
-        // 将其收集到 Vec 中即可多次访问
-        let cookies: Vec<Cookie> = response.cookies().collect();
         if cookies.is_empty() { return Err(WebScrapingError::CookieInvalid) }
 
         #[cfg(debug_assertions)]
-        print_info(&format!("获取成功。cookies: {:?}", cookies));
+        print_info(&format!("获取成功。cookies：{:?}", cookies));
 
         // 更新 Referer, Cookie 会由 reqwest 自动管理
         self.headers.insert(

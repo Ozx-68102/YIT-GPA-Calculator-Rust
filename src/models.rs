@@ -22,7 +22,7 @@ pub struct Course {
 // 网页爬取异常
 #[derive(Debug, Error)]
 pub enum WebScrapingError {
-    #[error("HTTP 请求失败: {0}")]
+    #[error("HTTP 请求失败：{0}")]
     HttpRequest(String),
 
     #[error("Cookie无效或不存在。")]
@@ -31,14 +31,20 @@ pub enum WebScrapingError {
     #[error("登录失败")]
     LoginFailed,
 
-    #[error("解析异常: {0}")]
-    ParseError(String)
+    #[error("解析异常：{0}")]
+    ParseError(String),
+
+    #[error("网址无效或被废弃：{0}")]
+    HostDeprecated(String),
+
+    #[error("无效HTTP头")]
+    InvalidHeader,
 }
 
 // 文件异常
 #[derive(Debug, Error)]
 pub enum FileError {
-    #[error("无法打开或解析上传的文件: {0}")]
+    #[error("无法打开或解析上传的文件：{0}")]
     OpenError(String),
 
     #[error("上传的文件中未找到有效的课程数据, 请检查文件内容和格式是否正确。")]
@@ -48,19 +54,19 @@ pub enum FileError {
 // 网页服务异常
 #[derive(Debug, Error)]
 pub enum WebError {
-    #[error("模板渲染失败: {0}")]
+    #[error("模板渲染失败：{0}")]
     TemplateError(String),
 
-    #[error("网页爬取错误: {0}")]
+    #[error("网页爬取错误：{0}")]
     WebScrapingError(#[from] WebScrapingError),
 
-    #[error("文件错误: {0}")]
+    #[error("文件错误：{0}")]
     FileError(#[from] FileError),
 
-    #[error("会话错误: {0}")]
+    #[error("会话错误：{0}")]
     SessionError(#[from] SessionError),
 
-    #[error("内部错误: {0}")]
+    #[error("内部错误：{0}")]
     InternalError(String)
 }
 
