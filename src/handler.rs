@@ -202,7 +202,7 @@ pub async fn first_result(session: Session, State(tera): State<Tera>) -> Result<
     print_info("正在从 Session 中读取数据...");
 
     #[cfg(not(debug_assertions))]
-    print_info("正在显示数据...");
+    print_info("会话已创建, 正在显示数据...");
 
     let result_mode: String = session.get("result_mode").await?.unwrap_or("file".to_string());
 
@@ -259,18 +259,20 @@ pub async fn first_result(session: Session, State(tera): State<Tera>) -> Result<
 pub async fn next_result(session: Session, Json(cal_mode): Json<CalculateMode>) -> Result<Json<serde_json::Value>, WebError> {
     print_info("尝试切换计算模式...");
 
-    let (gpa, courses): (Decimal, Vec<Course>) = match cal_mode.mode.as_str() {
+    let (gpa, courses, current_mode): (Decimal, Vec<Course>, &str) = match cal_mode.mode.as_str() {
         "all" => (
             session.get("gpa_all").await?.unwrap_or_default(),
-            session.get("courses_all").await?.unwrap_or_default()
+            session.get("courses_all").await?.unwrap_or_default(),
+            "全部"
         ),
         _ => (
             session.get("gpa_default").await?.unwrap_or_default(),
-            session.get("courses_default").await?.unwrap_or_default()
+            session.get("courses_default").await?.unwrap_or_default(),
+            "默认"
         )
     };
 
-    print_info("已切换计算模式");
+    print_info(&format!("已切换计算模式[当前模式: {}]", current_mode));
 
     Ok(Json(json!({"gpa": gpa, "courses": courses})))
 }
@@ -286,7 +288,7 @@ pub async fn shutdown(Extension(shutdown_tx): Extension<broadcast::Sender<()>>) 
 pub async fn logout(session: Session) -> Result<Json<serde_json::Value>, WebError> {
     session.delete().await.map_err(|e| WebError::InternalError(e.to_string()))?;
 
-    print_info("用户退出登录, Session 会话已销毁");
+    print_info("用户已销毁当前会话");
 
     // 创建变量遮蔽来确保锁能被尽快释放
     {

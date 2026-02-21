@@ -192,7 +192,8 @@ impl AAOWebsite {
         #[cfg(debug_assertions)]
         print_info(&format!("开始访问成绩页面：{}", grades_url));
 
-        let form_data = [("kksj", ""), ("kcxz", ""), ("kcmc", ""), ("xsfs", "all")];
+        // xsfs 的 max 表示 "显示最好成绩"
+        let form_data = [("kksj", ""), ("kcxz", ""), ("kcmc", ""), ("xsfs", "max")];
         let response = self.client.post(&grades_url).form(&form_data).send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
 
         let status_code = response.status();

@@ -42,7 +42,7 @@ pub enum FileError {
     OpenError(String),
 
     #[error("上传的文件中未找到有效的课程数据, 请检查文件内容和格式是否正确。")]
-    NoValidDataFound,
+    NoValidDataFound
 }
 
 // 网页服务异常
