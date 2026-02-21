@@ -262,7 +262,10 @@ impl AAOWebsite {
         for tr in table.select(&tr_selector).skip(1) {
             // 获取当前行的所有单元格, 过滤掉不完整的行
             let tds: Vec<ElementRef> = tr.select(&td_selector).collect();
-            if tds.len() < 11 { continue }  // 课程性质为空栏, 忽略不计
+
+            // 课程性质在未评教时为空栏, 在评教后则恢复正常, 出于兼容的原因改为 11
+            // 反正不影响使用
+            if tds.len() < 11 { continue }
 
             // 提取课程名称(在第4个单元格)
             let name = tds[3].text().collect::<String>().trim().to_string();
@@ -296,7 +299,8 @@ impl AAOWebsite {
             // 计算加权绩点并保留后2位小数
             let credit_gpa = round_2decimal(grade_point * credit);
 
-            // 哈希表去重: 课程存在多个, 则取较高绩点者; 否则直接插入表
+            // 哈希表去重兜底机制
+            // 若课程存在多个, 则取较高绩点者; 否则直接插入表
             let course = Course {
                 name: name.clone(),
                 attr,

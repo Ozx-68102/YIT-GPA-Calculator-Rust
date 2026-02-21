@@ -8,7 +8,10 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 pub const PERMANENT_IGNORED_COURSES: &[&str] = &["入学教育"];
-pub const ATTR_EXCLUSIONS: &[&str] = &["公共选修课", "通识教育选修"];
+
+// 都一样, 公共选修课的性质对应 "公选" 属性, 通识教育选修同理
+pub const ATTR_EXCLUSIONS: &[&str] = &["公选", "通识限选"];
+
 pub const EXCLUDED_COURSES_KEYWORD: &[&str] = &[
     "体育", "职业生涯规划与就业指导", "大学生安全教育", "大学生心理健康教育",
     "形势与政策", "军事理论", "军事训练", "军事技能", "创新创业教育",
