@@ -10,7 +10,7 @@ use fake_user_agent::get_rua;
 use lazy_static::lazy_static;
 use reqwest::{header::{HeaderMap, HeaderValue}, Client};
 use rust_decimal::Decimal;
-use scraper::{Html, Selector};
+use scraper::{selectable::Selectable, ElementRef, Html, Selector};
 use std::{collections::HashMap, sync::Mutex};
 
 // 每次程序启动都随机加载一个 UA, 由于后续需要更改此内容, 故此处使用互斥锁
@@ -237,21 +237,32 @@ impl AAOWebsite {
 
         // 解析 HTML 课程表格数据
         // 创建选择器, 类似隔壁 Beautiful Soup
+        let table_selector = Selector::parse("table#dataList").map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
+
         let tr_selector = Selector::parse("tr").map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
         let td_selector = Selector::parse("td").map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
 
         #[cfg(debug_assertions)]
         print_info("解析完成，将收集成绩数据");
 
+        let table = match document.select(&table_selector).next() {
+            Some(t) => t,
+            None => {
+                let error_message = "未找到成绩数据";
+                print_error(error_message);
+                return Err(WebScrapingError::ParseError(error_message.to_string()))
+            },
+        };
+
         // 创建[可变]哈希表, 只有 let 后面带 mut 关键字, 变量内容才可被改变, 或者说被重新赋值
         // 但作为静态强类型语言, 不论内容如何改变, 数据类型都不可变
         let mut courses_record: HashMap<String, Course> = HashMap::new();
 
         // 遍历所有数据行, 跳过表头行, 所以用 skip(1)
-        for tr in document.select(&tr_selector).skip(1) {
+        for tr in table.select(&tr_selector).skip(1) {
             // 获取当前行的所有单元格, 过滤掉不完整的行
-            let tds: Vec<_> = tr.select(&td_selector).collect();
-            if tds.len() < 12 { continue }
+            let tds: Vec<ElementRef> = tr.select(&td_selector).collect();
+            if tds.len() < 11 { continue }  // 课程性质为空栏, 忽略不计
 
             // 提取课程名称(在第4个单元格)
             let name = tds[3].text().collect::<String>().trim().to_string();
@@ -259,8 +270,14 @@ impl AAOWebsite {
             // 提取总分(在第5个单元格)
             let score_text = tds[4].text().collect::<String>().trim().to_string();
 
-            // 提取课程性质(在第12个单元格)
-            let nature = tds[11].text().collect::<String>().trim().to_string();
+            // 在此处判断是否完成评教
+            if score_text.contains("请评教") {
+                print_error("检测到未进行评教，请先登录教务系统完成评教再使用。");
+                return Err(WebScrapingError::TeachingEvaluatingNotAccomplish);
+            }
+
+            // 提取课程属性(在第11个单元格)
+            let attr = tds[10].text().collect::<String>().trim().to_string();
 
             // 提取学分并且转换为 Decimal 类型
             let credit_text = tds[6].text().collect::<String>().trim().to_string();
@@ -270,6 +287,7 @@ impl AAOWebsite {
             };
 
             // 转换绩点, 无效绩点则跳过
+            // 未评教会直接导致此处转换失败
             let grade_point = match score_trans_grade(&score_text) {
                 Some(g) => g,
                 None => continue
@@ -281,7 +299,7 @@ impl AAOWebsite {
             // 哈希表去重: 课程存在多个, 则取较高绩点者; 否则直接插入表
             let course = Course {
                 name: name.clone(),
-                nature,
+                attr,
                 score: score_text,
                 credit,
                 grade: grade_point,

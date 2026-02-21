@@ -2,8 +2,8 @@
 use crate::{
     business::{
         print_error, print_info, process_scraped_course_results, round_2decimal, score_trans_grade,
-        ProcessedGPAResults, ResultSource, EXCLUDED_COURSES_KEYWORD,
-        NATURE_EXCLUSIONS, PERMANENT_IGNORED_COURSES,
+        ProcessedGPAResults, ResultSource, ATTR_EXCLUSIONS,
+        EXCLUDED_COURSES_KEYWORD, PERMANENT_IGNORED_COURSES,
     },
     models::{Course, FileError, WebError},
     scraping::{AAOWebsite, USER_AGENT},
@@ -158,7 +158,7 @@ pub async fn score_from_file(session: Session, mut multipart: Multipart) -> Resu
                             let credit_gpa = round_2decimal(grade * credit);
                             courses.push(Course {
                                 name,
-                                nature: "".to_string(),
+                                attr: "".to_string(),
                                 score: score_str,
                                 credit,
                                 grade,
@@ -242,7 +242,7 @@ pub async fn first_result(session: Session, State(tera): State<Tera>) -> Result<
     // 将排除的变量也传给前端
     context.insert("excluded_courses", EXCLUDED_COURSES_KEYWORD);
     context.insert("permanent_ignored_courses", PERMANENT_IGNORED_COURSES);
-    context.insert("nature_exclusions", NATURE_EXCLUSIONS);
+    context.insert("nature_exclusions", ATTR_EXCLUSIONS);
 
     let html = tera.render("result.html", &context).map_err(|e| WebError::TemplateError(e.to_string()))?;
 

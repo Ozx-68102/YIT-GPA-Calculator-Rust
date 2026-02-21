@@ -12,7 +12,7 @@ use tower_sessions::session::Error as SessionError;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Course {
     pub name: String,       // 课程名称
-    pub nature: String,     // 课程性质
+    pub attr: String,       // 课程属性
     pub score: String,      // 总分
     pub credit: Decimal,    // 学分
     pub grade: Decimal,     // 绩点
@@ -33,12 +33,15 @@ pub enum WebScrapingError {
 
     #[error("解析异常：{0}")]
     ParseError(String),
-    
+
     #[error("无效HTTP头")]
     InvalidHeader,
-    
+
     #[error("网址无效或被废弃：{0}")]
     HostDeprecated(String),
+
+    #[error("您还未评教，请先登录教务系统完成评教再使用本程序")]
+    TeachingEvaluatingNotAccomplish,
 
     #[error("没有解析到有效的成绩数据")]
     InvalidCourseData,
