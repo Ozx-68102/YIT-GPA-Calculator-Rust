@@ -33,11 +33,15 @@ GPA（平均学分绩点）及课程成绩查询系统。它旨在提供一个**
 - **模板引擎：** Tera
 - **资源嵌入：** `rust-embed` (用于将所有前端和静态资源打包进 `.exe` 文件)
 - **会话管理：** `tower-sessions` & `tower-cookies` (用于实现登录状态保持和跨页面通信)
-- **数据序列化：** `serde` (用于处理 JSON 数据和会话存储)
+- **数据序列化：** `serde` & `serde_json` (用于处理 JSON 数据和会话存储)
 - **高精度计算：** `rust_decimal` (用于避免 GPA 计算中的浮点数误差)
 - **错误处理：** `anyhow` & `thiserror` (提供了健壮、清晰的错误管理)
 - **并发处理：** `std::sync::Mutex` (用于实现线程安全的可变全局状态)
 - **跨平台工具：** `webbrowser` (用于在程序启动时自动打开用户的默认浏览器)
+- **时间与随机：** `chrono` (时间戳)、`rand` (随机生成会话密钥)
+- **编码与 URL：** `base64` (Base64 编码)、`url` (URL 解析与格式化)
+- **请求与响应：** `fake_user_agent` (随机 User-Agent)、`mime_guess` (自动推断 Content-Type)
+- **静态初始化：** `lazy_static` (用于静态变量的延时初始化)
 
 
 
