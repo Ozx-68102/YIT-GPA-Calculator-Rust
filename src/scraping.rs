@@ -1,10 +1,10 @@
 // 获取数据层
 use crate::{
-    business::{b64_encode, print_info, round_2decimal, score_trans_grade},
+    _url::AAOUrl,
+    business::{b64_encode, print_error, print_info, round_2decimal, score_trans_grade},
     models::{Course, WebScrapingError}
 };
 
-use crate::business::print_error;
 use anyhow::Result;
 use fake_user_agent::get_rua;
 use lazy_static::lazy_static;
@@ -21,7 +21,7 @@ lazy_static! {
 // 教务处网站结构体
 pub struct AAOWebsite {
     client: Client, // HTTP 客户端, 相当于隔壁 Python 的 requests.Session()
-    base_url: String,    // HOST
+    base_url: AAOUrl,    // 直接存格式化的 Url
     headers: HeaderMap  // 动态管理请求头
 }
 
@@ -50,20 +50,20 @@ impl AAOWebsite {
         #[cfg(debug_assertions)]
         print_info(&format!("客户端实例初始化完成：{:?}", client));
 
-        // 基础 Host
-        let base_host = "jw.yit.edu.cn".to_string();
-
         // 初始化请求头
         let mut init_headers = HeaderMap::new();
 
+        let base_url = AAOUrl::new();
+
+        let mut referer_url = base_url.push("kscj").push("cjcx_query").get();
+        let referer = referer_url.query_pairs_mut()
+            .append_pair("Ves632DSdyV", "NEW_XSD_XJCJ")
+            .finish()
+            .as_str();
+
         init_headers.insert(
             "Referer",
-            HeaderValue::from_str(
-                &format!(
-                    "http://{}/yjlgxy_jsxsd/kscj/cjcx_query?Ves632DSdyV=NEW_XSD_XJCJ",
-                    base_host
-                )
-            ).map_err(|_| WebScrapingError::InvalidHeader)?
+            HeaderValue::from_str(referer).map_err(|_| WebScrapingError::InvalidHeader)?
         );
         init_headers.insert(
             "Content-Type",
@@ -80,7 +80,7 @@ impl AAOWebsite {
         // 用 Ok 包裹结构体则表示成功
         Ok(Self {
             client,
-            base_url: format!("http://{}/yjlgxy_jsxsd", base_host),
+            base_url,
             headers: init_headers
         })
     }
@@ -89,10 +89,10 @@ impl AAOWebsite {
     // self 前面要加 mut 因为需要更新请求头 headers
     pub async fn init(&mut self) -> Result<(), WebScrapingError> {
         #[cfg(debug_assertions)]
-        print_info(&format!("尝试访问：{}", self.base_url));
+        print_info(&format!("尝试访问：{}", self.base_url.get().as_str()));
 
         // await 表示等待请求完成, 出错会转换成自定义错误类型
-        let response = self.client.get(&self.base_url)
+        let response = self.client.get(self.base_url.get().as_str())
             .headers(self.headers.clone())  // 设置请求头
             .send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
 
@@ -116,16 +116,23 @@ impl AAOWebsite {
             .collect();
 
         // 逻辑上优先检测域名是否仍有效
-        let response_text = response.text().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
+        let response_text = response.text()
+            .await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
+
         if response_text.contains("无效域名") {
             #[cfg(debug_assertions)]
-            print_error(&format!("网址失效或被废弃，访问失败：{}", self.base_url));
+            print_error(&format!("网址失效或被废弃，访问失败：{}", self.base_url.get().as_str()));
 
-            return Err(WebScrapingError::HostDeprecated(self.base_url.clone().to_string())) // 直接返回网址即可
+            return Err(WebScrapingError::HostDeprecated(self.base_url.get().to_string())) // 直接返回网址即可
         }
 
         #[cfg(debug_assertions)]
-        print_info(&format!("访问 {} 成功！ HTTP {}。将获取 cookie", self.base_url, status_code));
+        print_info(
+            &format!(
+                "访问 {} 成功！ HTTP {}。将获取 cookie",
+                self.base_url.get().as_str(), status_code
+            )
+        );
 
         if cookies.is_empty() { return Err(WebScrapingError::CookieInvalid) }
 
@@ -135,11 +142,12 @@ impl AAOWebsite {
         // 更新 Referer, Cookie 会由 reqwest 自动管理
         self.headers.insert(
             "Referer",
-            HeaderValue::from_str(&self.base_url).map_err(|e| WebScrapingError::ParseError(e.to_string()))?
+            HeaderValue::from_str(self.base_url.get().as_str())
+                .map_err(|e| WebScrapingError::ParseError(e.to_string()))?
         );
 
         #[cfg(debug_assertions)]
-        print_info(&format!("请求头已更新：{:?}", self.base_url));
+        print_info(&format!("请求头已更新：{}", self.base_url.get().as_str()));
 
         Ok(())
     }
@@ -158,7 +166,8 @@ impl AAOWebsite {
         print_info(&format!("编码后结果：{}", encoded));
 
         // 提交表单数据并登录
-        let login_url = format!("{}/xk/LoginToXk", self.base_url);
+        let login_url = self.base_url.push("xk").push("LoginToXk")
+            .get().to_string();
 
         #[cfg(debug_assertions)]
         print_info(&format!("现在开始提交表单数据并尝试登录，目标 URL 为 {}", login_url));
@@ -213,14 +222,16 @@ impl AAOWebsite {
         print_info("尝试获取成绩数据...");
 
         // 获取成绩页面
-        let grades_url = format!("{}/kscj/cjcx_list", self.base_url);
+        let grades_url = self.base_url.push("kscj").push("cjcx_list")
+            .get().to_string();
 
         #[cfg(debug_assertions)]
         print_info(&format!("开始访问成绩页面：{}", grades_url));
 
         // xsfs 的 max 表示 "显示最好成绩"
         let form_data = [("kksj", ""), ("kcxz", ""), ("kcmc", ""), ("xsfs", "max")];
-        let response = self.client.post(&grades_url).form(&form_data).send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
+        let response = self.client.post(&grades_url).form(&form_data).send()
+            .await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
 
         let status_code = response.status();
 

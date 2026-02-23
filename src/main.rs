@@ -1,4 +1,7 @@
-use crate::business::{format_log_msg, print_info};
+use crate::{
+    _url::HTTP_SCHEME,
+    business::{format_log_msg, print_info},
+};
 
 use anyhow::{Context, Result};
 use axum::{
@@ -21,6 +24,7 @@ mod business;
 mod scraping;
 mod handler;
 mod router;
+mod _url;
 
 // 使用 RustEmbed 宏来嵌入整个 templates 文件夹
 // folder 路径是相对于 Cargo.toml 文件的
@@ -82,10 +86,10 @@ async fn main() -> Result<()> {
     // 绑定地址到 TCP 监听器
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
     let listener = TcpListener::bind(addr).await.with_context(|| format_log_msg(&format!("无法绑定到地址 {}", addr)))?;
-    print_info(&format!("服务器将运行于 http://{} ，如不小心关闭浏览器，重新打开浏览器输入该网址即可", addr));
+    print_info(&format!("服务器将运行于 {}://{} ，如不小心关闭浏览器，重新打开浏览器输入该网址即可", HTTP_SCHEME, addr));
 
     // 自动打开浏览器
-    let _ = webbrowser::open(&format!("http://{}", addr));
+    let _ = webbrowser::open(&format!("{}://{}", HTTP_SCHEME, addr));
 
     print_info("服务器启动成功！注意：请勿关闭此窗口，否则程序将终止运行");
 

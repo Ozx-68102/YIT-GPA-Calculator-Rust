@@ -322,17 +322,29 @@
             uploadErrorMsg.textContent = "";
         }
 
-        /**
-         * 确定请求已经成功
-         * @param {string} choice
-         * @param {any} data
-         * @throws Error
-         * @return {Promise<void>}
-         */
-        const isPostSuccess = async (choice, data = null) => {
-            const response = await postData(choice, data);
-            if (!response.ok) throw new Error(await response.text() || "未知错误");
-        }
+        // 提取出不同路由专属的验证逻辑与回调动作
+        // 两个 score 相关的路由由于行为完全一致，可以直接复用同一个回调引用。
+        const handleScoreSuccess = () => window.location.href = "/result";
+        const requestStrategies = {
+            "/shutdown": {
+                isValidData: (data) => data === null,
+                onSuccess: () => {
+                    shutdownAlertPlaceholder.textContent = "程序已成功关闭，请手动关闭此浏览器选项卡。";
+                    shutdownAlertPlaceholder.classList.add("alert-danger");
+                    shutdownAlertPlaceholder.classList.remove("d-none");
+                    shutdownBtn.textContent = "程序已关闭";
+                    clearedAllDOM();
+                }
+            },
+            "/score-from-official-website": {
+                isValidData: (data) => data !== null,
+                onSuccess: handleScoreSuccess
+            },
+            "/score-from-file": {
+                isValidData: (data) => data !== null,
+                onSuccess: handleScoreSuccess
+            }
+        };
 
         /** 提交参数到指定后端接口
          * @param {string} choice 后端接口
@@ -341,23 +353,16 @@
          * @return Promise<void>
          */
         async function submitFormRequest(choice, data = null) {
-            const allowed_choice = ["/shutdown", "/score-from-official-website", "/score-from-file"];
-            if (!allowed_choice.includes(choice)) throw new Error("接口参数异常");
-            if (data !== null) throw new Error("接口数据异常");
+            const strategy = requestStrategies[choice];
+            if (!strategy) throw new Error("接口参数异常");
+            if (!strategy.isValidData(data)) throw new Error("接口数据异常");
 
-            await isPostSuccess(choice, data);
+            // 将原本分散在各个 case 中的网络请求与错误拦截统一提炼到外层
+            const res = await (data !== null ? postData(choice, data) : postData(choice));
+            if (!res.ok) throw new Error((await res.text()) || "未知错误");
 
-            if (choice !== "/shutdown") {
-                window.location.href = "/result";
-                return;
-            }
-
-            shutdownAlertPlaceholder.textContent = "程序已成功关闭，请手动关闭此浏览器选项卡。";
-            shutdownAlertPlaceholder.classList.add("alert-danger");
-            shutdownAlertPlaceholder.classList.remove("d-none");
-
-            shutdownBtn.textContent = "程序已关闭";
-            clearedAllDOM();
+            // 根据命中策略执行对应的视图更新或跳转
+            strategy.onSuccess();
         }
 
         // 提交登录凭据
