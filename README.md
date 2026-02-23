@@ -67,7 +67,8 @@ GPA（平均学分绩点）及课程成绩查询系统。它旨在提供一个**
 
 ### 前提条件
 
-- 安装 [Rust 编程语言及其工具链](https://www.rust-lang.org/tools/install)。
+- 安装 [Rust 编程语言及其工具链](https://www.rust-lang.org/tools/install)，或；
+- 下载 [RustRover](https://www.jetbrains.com/rust/) IDE，用它安装工具链相对更方便。
 
 ### 克隆仓库
 

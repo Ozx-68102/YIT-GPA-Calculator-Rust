@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
             // embedded_file.data 是文件内容, 类型为 Vec<u8>
             // embedded_file.metadata 是文件元数据, 比如说是否为目录
             // 将 Vec<u8> 转换为 &str
-            let content = std::str::from_utf8(embedded_file.data.as_ref())?;
+            let content: &str = std::str::from_utf8(embedded_file.data.as_ref())?;
 
             // 将 HTML 模板添加到 Tera 实例
             // 这里的 content 已经是借用的形式了(类型 &str), 因此可以不需要借用符号(&)

@@ -12,7 +12,7 @@ use crate::{
 
 use axum::{
     extract::{Form, Multipart, State},
-    http::{header, StatusCode, Uri},
+    http::{header, HeaderName, StatusCode, Uri},
     response::{Html, IntoResponse, Redirect, Response},
     Extension,
     Json
@@ -152,7 +152,7 @@ pub async fn score_from_file(session: Session, mut multipart: Multipart) -> Resu
                     let credit_str = row.get(1).map(|c| c.to_string()).unwrap_or_default().trim().to_string();
                     let score_str = row.get(2).map(|c| c.to_string()).unwrap_or_default().trim().to_string();
 
-                    if name.is_empty() || credit_str.is_empty() || score_str.is_empty() { continue; }
+                    if name.is_empty() || credit_str.is_empty() || score_str.is_empty() { continue }
                     if let Ok(credit) = credit_str.parse::<Decimal>() {
                         if let Some(grade) = score_trans_grade(&score_str) {
                             let credit_gpa = round_2decimal(grade * credit);
@@ -177,7 +177,7 @@ pub async fn score_from_file(session: Session, mut multipart: Multipart) -> Resu
 
     print_info(&format!("从 Excel 文件中成功解析{}门课程", courses.len()));
 
-    // 只关心 All 模式的数据
+    // 该模式只关心 All 模式的数据
     let (gpa, courses_for_use) = {
         let results: ProcessedGPAResults = process_scraped_course_results(&courses, ResultSource::InputFile);
 
@@ -197,6 +197,7 @@ pub async fn score_from_file(session: Session, mut multipart: Multipart) -> Resu
 }
 
 // 负责从 Session 读取 Default 模式数据并返回给前端
+/// 只从 Session 中读取计算好的数据，和计算本身解耦
 pub async fn first_result(session: Session, State(tera): State<Tera>) -> Result<impl IntoResponse, WebError> {
     #[cfg(debug_assertions)]
     print_info("正在从 Session 中读取数据...");
@@ -311,17 +312,21 @@ pub async fn logout(session: Session) -> Result<Json<serde_json::Value>, WebErro
 
 // 下载 xlsx 文件
 pub async fn download_temp() -> Result<impl IntoResponse, WebError> {
-    print_info("正在下载上传模板文件...");
+    print_info("获取免登录上传模板文件...");
 
     match BinaryAsset::get("CoursesList.xlsx") {
         Some(content) => {
             let body = content.data;
-            let headers = [
+            let headers: [(HeaderName, &str); 2] = [
                 (header::CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
                 (header::CONTENT_DISPOSITION, "attachment; filename=CoursesList.xlsx")
             ];
+            print_info("获取成功");
             Ok((headers, body).into_response())
         }
-        None => Err(WebError::InternalError("未找到模板文件".to_string()))
+        None => {
+            print_error("获取失败：未找到模板文件");
+            Err(WebError::InternalError("未找到模板文件".to_string()))
+        }
     }
 }

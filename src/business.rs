@@ -22,14 +22,14 @@ pub const EXCLUDED_COURSES_KEYWORD: &[&str] = &[
 
 // 绩点计算模式
 enum GPAMode {
-    Default,    // 默认模式 - 排除部分课程 GPA
-    All,         // 完全模式 - 计算所有课程 GPA
+    Default,    // 默认模式 - 排除部分课程的 GPA
+    All,        // 完全模式 - 计算所有课程的 GPA
 }
 
 // 数据来源
 pub enum ResultSource {
     OfficialWebsite,    // 登录获取
-    InputFile,   // 导入文件计算
+    InputFile,          // 导入文件计算
 }
 
 // 绩点计算信息
@@ -43,7 +43,7 @@ pub struct GPAResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessedGPAResults {
     pub default: Option<GPAResult>, // 可能不存在
-    pub all: GPAResult,  // 必定存在
+    pub all: GPAResult,             // 必定存在
 }
 
 
@@ -56,7 +56,7 @@ pub fn b64_encode(text: &str) -> String {
 /// 成绩转换绩点
 pub fn score_trans_grade(score: &str) -> Option<Decimal> {
     // 返回值有两个状态, Some 表示有值返回, 括号里面是值, None 表示无值
-    // 等级制的判断更简短, 先做等级制判断
+    // 等级制的判断更简短, 为了方便先做等级制判断
     match score {
         "不及格" | "不合格" => return Some(Decimal::ZERO),
         "及格" | "合格" => return Some(Decimal::ONE),
@@ -138,6 +138,7 @@ fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, Vec<C
     (gpa, courses_to_use)
 }
 
+/// 根据数据获取方式计算所有结果
 pub fn process_scraped_course_results(courses: &[Course], source: ResultSource) -> ProcessedGPAResults {
     // 先计算 All 模式的结果
     let all_result = {
