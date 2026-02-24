@@ -20,9 +20,9 @@ lazy_static! {
 
 // 教务处网站结构体
 pub struct AAOWebsite {
-    client: Client, // HTTP 客户端, 相当于隔壁 Python 的 requests.Session()
-    base_url: AAOUrl,    // 直接存格式化的 Url
-    headers: HeaderMap  // 动态管理请求头
+    client: Client,         // HTTP 客户端, 相当于隔壁 Python 的 requests.Session()
+    base_url: AAOUrl,       // 直接存格式化的 Url
+    headers: HeaderMap      // 动态管理请求头
 }
 
 // 实现结构体功能
@@ -35,7 +35,13 @@ impl AAOWebsite {
         // 创建客户端实例, `?`表示失败就返回错误, 类似隔壁的 raise
         // 需要启动 cookie 储存
         let client = {
-            let user_agent_guard = USER_AGENT.lock().unwrap();
+            let user_agent_guard = USER_AGENT.lock().unwrap_or_else(|e| {
+                #[cfg(debug_assertions)]
+                print_error(&format!("致命错误 - USER_AGENT Mutex 锁中毒：{}", e));
+
+                // 出现错误中断当前线程退出该方法
+                panic!("致命错误 - 无法锁定 USER_AGENT 的 Mutex 互斥锁");
+            });
 
             #[cfg(debug_assertions)]
             print_info(&format!("UA 已被设置为: {}", user_agent_guard.clone()));
@@ -55,6 +61,7 @@ impl AAOWebsite {
 
         let base_url = AAOUrl::new();
 
+        // 先存储该临时变量再进一步加工
         let mut referer_url = base_url.push("kscj").push("cjcx_query").get();
         let referer = referer_url.query_pairs_mut()
             .append_pair("Ves632DSdyV", "NEW_XSD_XJCJ")
@@ -156,14 +163,8 @@ impl AAOWebsite {
     // username 和 password 本来就是切片引用(&str), 所以它们已经是借用的形式, 所有权不会被消耗和移除
     // 它们的生命周期会随着其真正的拥有者(owner)被清理而移除, 在这之前它们一直存在
     pub async fn login(&mut self, username: &str, password: &str) -> Result<(), WebScrapingError> {
-        #[cfg(debug_assertions)]
-        print_info(&format!("用户输入了登录信息[账：{}，密：{}]，将对其进行编码", username, password));
-
         // b64 对账号密码进行编码
         let encoded = format!("{}%%%{}", b64_encode(username), b64_encode(password));
-
-        #[cfg(debug_assertions)]
-        print_info(&format!("编码后结果：{}", encoded));
 
         // 提交表单数据并登录
         let login_url = self.base_url.push("xk").push("LoginToXk")
@@ -201,7 +202,8 @@ impl AAOWebsite {
 
         self.headers.insert(
             "Referer",
-            HeaderValue::from_str(&final_url_option).map_err(|e| WebScrapingError::ParseError(e.to_string()))?
+            HeaderValue::from_str(&final_url_option)
+                .map_err(|e| WebScrapingError::ParseError(e.to_string()))?
         );
 
         // 添加 x-requested-with 头

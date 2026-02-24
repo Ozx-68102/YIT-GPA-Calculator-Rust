@@ -129,7 +129,7 @@ fn calculate_gpa_from_list(courses: &[Course], mode: GPAMode) -> (Decimal, Vec<C
 
     let total_credits: Decimal = courses_to_use.iter().map(|c| c.credit).sum();
     let total_cg: Decimal = courses_to_use.iter().map(|c| c.credit_gpa).sum();
-    let gpa = if total_credits > Decimal::ZERO {
+    let gpa: Decimal = if total_credits > Decimal::ZERO {
         round_2decimal(total_cg / total_credits)
     } else {
         Decimal::ZERO
