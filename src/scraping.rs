@@ -8,9 +8,10 @@ use crate::{
 use anyhow::Result;
 use fake_user_agent::get_rua;
 use lazy_static::lazy_static;
-use reqwest::{header::{HeaderMap, HeaderValue}, Client};
+use reqwest::{header::{HeaderMap, HeaderValue}, Client, Response};
 use rust_decimal::Decimal;
 use scraper::{selectable::Selectable, ElementRef, Html, Selector};
+use serde_urlencoded;
 use std::{collections::HashMap, sync::Mutex};
 
 // 每次程序启动都随机加载一个 UA, 由于后续需要更改此内容, 故此处使用互斥锁
@@ -159,13 +160,20 @@ impl AAOWebsite {
         Ok(())
     }
 
+    async fn get_post(&mut self, url: &str, body: String) -> Result<Response, WebScrapingError> {
+        let resp = self.client.post(url)
+            .headers(self.headers.clone())
+            .body(body)
+            .send()
+            .await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
+
+        Ok(resp)
+    }
+
     // [异步]登录系统
     // username 和 password 本来就是切片引用(&str), 所以它们已经是借用的形式, 所有权不会被消耗和移除
     // 它们的生命周期会随着其真正的拥有者(owner)被清理而移除, 在这之前它们一直存在
     pub async fn login(&mut self, username: &str, password: &str) -> Result<(), WebScrapingError> {
-        // b64 对账号密码进行编码
-        let encoded = format!("{}%%%{}", b64_encode(username), b64_encode(password));
-
         // 提交表单数据并登录
         let login_url = self.base_url.push("xk").push("LoginToXk")
             .get().to_string();
@@ -173,12 +181,12 @@ impl AAOWebsite {
         #[cfg(debug_assertions)]
         print_info(&format!("现在开始提交表单数据并尝试登录，目标 URL 为 {}", login_url));
 
-        let form_data = [("encoded", &encoded)];
-        let response = self.client.post(&login_url)
-            .headers(self.headers.clone())
-            .form(&form_data)
-            .send().await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
+        // b64 对账号密码进行编码
+        let encoded = format!("{}%%%{}", b64_encode(username), b64_encode(password));
+        let form_body = serde_urlencoded::to_string(&[("encoded", encoded.as_str())])
+            .map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
 
+        let response = self.get_post(&login_url, form_body).await?;
         let status_code = response.status();
 
         if !response.status().is_success() {
@@ -219,7 +227,7 @@ impl AAOWebsite {
     }
 
     // 获取成绩数据, 这里不再需要更新 headers 的状态了, 所以不用 mut
-    pub async fn get_grades(&self) -> Result<Vec<Course>, WebScrapingError> {
+    pub async fn get_grades(&mut self) -> Result<Vec<Course>, WebScrapingError> {
         #[cfg(not(debug_assertions))]
         print_info("尝试获取成绩数据...");
 
@@ -231,9 +239,11 @@ impl AAOWebsite {
         print_info(&format!("开始访问成绩页面：{}", grades_url));
 
         // xsfs 的 max 表示 "显示最好成绩"
-        let form_data = [("kksj", ""), ("kcxz", ""), ("kcmc", ""), ("xsfs", "max")];
-        let response = self.client.post(&grades_url).form(&form_data).send()
-            .await.map_err(|e| WebScrapingError::HttpRequest(e.to_string()))?;
+        let form_body = serde_urlencoded::to_string(&[
+            ("kksj", ""), ("kcxz", ""), ("kcmc", ""), ("xsfs", "max"),
+        ]).map_err(|e| WebScrapingError::ParseError(e.to_string()))?;
+
+        let response = self.get_post(&grades_url, form_body).await?;
 
         let status_code = response.status();
 

@@ -10,7 +10,7 @@ use axum::{
     serve,
     Extension
 };
-use rand::Rng;
+use rand::RngExt;
 use rust_embed::RustEmbed;
 use std::net::SocketAddr;
 use tera::Tera;
