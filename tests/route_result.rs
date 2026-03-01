@@ -31,11 +31,7 @@ async fn get_result_without_session_redirects_to_root() {
     let app = test_app();
 
     let response = app
-        .oneshot(
-            HttpRequest::get("/result")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(HttpRequest::get("/result").body(Body::empty()).unwrap())
         .await
         .unwrap();
 

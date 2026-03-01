@@ -35,7 +35,7 @@ impl AAOWebsite {
 
         let client = Client::builder()
             .user_agent(user_agent)
-                .cookie_store(true) // 自动处理 Cookie
+            .cookie_store(true) // 自动处理 Cookie
             .build()?;
 
         // cfg(debug_assertions) 表示下方紧贴着的内容只在 dev 模式下出现
