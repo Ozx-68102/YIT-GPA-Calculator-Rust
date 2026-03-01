@@ -74,6 +74,10 @@ pub fn score_trans_grade(score: &str) -> Option<Decimal> {
         Err(_) => return None
     };
 
+    if score_val < Decimal::ZERO || score_val > dec!(100) {
+        return None;
+    }
+
     // match 从上到下匹配, s 表示一个变量(可以自己取别的名字), 后面if补充条件
     // 性能比 if-else 语句略好
     let grade = match score_val {
@@ -176,4 +180,171 @@ pub fn print_info(msg: &str) {
 /// 打印异常信息
 pub fn print_error(msg: &str) {
     eprintln!("{}", format_log_msg(msg));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_course(name: &str, attr: &str, score: &str, credit: Decimal, grade: Decimal) -> Course {
+        Course {
+            name: name.to_string(),
+            attr: attr.to_string(),
+            score: score.to_string(),
+            credit,
+            grade,
+            credit_gpa: round_2decimal(credit * grade),
+        }
+    }
+
+    // ---------- score_trans_grade：等级制 ----------
+    #[test]
+    fn score_trans_grade_level_fail() {
+        assert_eq!(score_trans_grade("不及格"), Some(Decimal::ZERO));
+        assert_eq!(score_trans_grade("不合格"), Some(Decimal::ZERO));
+    }
+
+    #[test]
+    fn score_trans_grade_level_pass() {
+        assert_eq!(score_trans_grade("及格"), Some(Decimal::ONE));
+        assert_eq!(score_trans_grade("合格"), Some(Decimal::ONE));
+    }
+
+    #[test]
+    fn score_trans_grade_level_mid_good_excellent() {
+        assert_eq!(score_trans_grade("中"), Some(dec!(2.33)));
+        assert_eq!(score_trans_grade("良"), Some(dec!(3.33)));
+        assert_eq!(score_trans_grade("优"), Some(dec!(4.33)));
+    }
+
+    // ---------- score_trans_grade：百分制边界 ----------
+    #[test]
+    fn score_trans_grade_percent_boundaries() {
+        assert_eq!(score_trans_grade("0"), Some(Decimal::ZERO));
+        assert_eq!(score_trans_grade("59"), Some(Decimal::ZERO));
+        assert_eq!(score_trans_grade("60"), Some(dec!(1.33)));
+        assert_eq!(score_trans_grade("63"), Some(dec!(1.33)));
+        assert_eq!(score_trans_grade("64"), Some(dec!(1.67)));
+        assert_eq!(score_trans_grade("66"), Some(dec!(1.67)));
+        assert_eq!(score_trans_grade("67"), Some(dec!(2.00)));
+        assert_eq!(score_trans_grade("70"), Some(dec!(2.33)));
+        assert_eq!(score_trans_grade("74"), Some(dec!(2.67)));
+        assert_eq!(score_trans_grade("77"), Some(dec!(3.00)));
+        assert_eq!(score_trans_grade("80"), Some(dec!(3.33)));
+        assert_eq!(score_trans_grade("83"), Some(dec!(3.67)));
+        assert_eq!(score_trans_grade("87"), Some(dec!(4.00)));
+        assert_eq!(score_trans_grade("90"), Some(dec!(4.33)));
+        assert_eq!(score_trans_grade("95"), Some(dec!(4.67)));
+        assert_eq!(score_trans_grade("100"), Some(dec!(4.67)));
+    }
+
+    // ---------- score_trans_grade：非法输入 ----------
+    #[test]
+    fn score_trans_grade_invalid() {
+        assert_eq!(score_trans_grade(""), None);
+        assert_eq!(score_trans_grade("abc"), None);
+        assert_eq!(score_trans_grade("60.5.5"), None);
+        assert_eq!(score_trans_grade("101"), None);
+        assert_eq!(score_trans_grade("-1"), None);
+    }
+
+    // ---------- round_2decimal ----------
+    #[test]
+    fn round_2decimal_keeps_two_dp() {
+        assert_eq!(round_2decimal(dec!(2.333)), dec!(2.33));
+        assert_eq!(round_2decimal(dec!(1.111)), dec!(1.11));
+    }
+
+    #[test]
+    fn round_2decimal_rounds_half_up() {
+        assert_eq!(round_2decimal(dec!(2.335)), dec!(2.34));
+        assert_eq!(round_2decimal(dec!(2.334)), dec!(2.33));
+    }
+
+    #[test]
+    fn round_2decimal_integer_unchanged() {
+        assert_eq!(round_2decimal(dec!(3)), dec!(3.00));
+        assert_eq!(round_2decimal(dec!(4.00)), dec!(4.00));
+    }
+
+    // ---------- process_scraped_course_results：空列表 ----------
+    #[test]
+    fn process_empty_list() {
+        let courses: Vec<Course> = vec![];
+        let out = process_scraped_course_results(&courses, ResultSource::OfficialWebsite);
+        assert_eq!(out.default.as_ref().unwrap().gpa, Decimal::ZERO);
+        assert!(out.default.as_ref().unwrap().courses.is_empty());
+        assert_eq!(out.all.gpa, Decimal::ZERO);
+        assert!(out.all.courses.is_empty());
+    }
+
+    // ---------- 仅「入学教育」被永久排除 ----------
+    #[test]
+    fn process_only_permanent_ignored() {
+        let courses = vec![make_course("入学教育", "必修", "合格", dec!(1), dec!(1))];
+        let out = process_scraped_course_results(&courses, ResultSource::OfficialWebsite);
+        assert_eq!(out.default.as_ref().unwrap().gpa, Decimal::ZERO);
+        assert!(out.default.as_ref().unwrap().courses.is_empty());
+        assert_eq!(out.all.gpa, Decimal::ZERO);
+        assert!(out.all.courses.is_empty());
+    }
+
+    // ---------- 仅公选/通识限选：Default 排除、All 计入 ----------
+    #[test]
+    fn process_only_attr_excluded_default_excludes() {
+        let courses = vec![
+            make_course("某公选课", "公选", "85", dec!(2), dec!(3.33)),
+            make_course("某通识限选", "通识限选", "80", dec!(1), dec!(3.33)),
+        ];
+        let out = process_scraped_course_results(&courses, ResultSource::OfficialWebsite);
+        assert_eq!(out.default.as_ref().unwrap().gpa, Decimal::ZERO);
+        assert!(out.default.as_ref().unwrap().courses.is_empty());
+        assert_eq!(out.all.courses.len(), 2);
+        let expected_all = round_2decimal((dec!(2) * dec!(3.33) + dec!(1) * dec!(3.33)) / dec!(3));
+        assert_eq!(out.all.gpa, expected_all);
+    }
+
+    // ---------- 仅含体育等关键词：Default 排除、All 计入 ----------
+    #[test]
+    fn process_only_keyword_excluded_default_excludes() {
+        let courses = vec![make_course("体育", "必修", "90", dec!(1), dec!(4.33))];
+        let out = process_scraped_course_results(&courses, ResultSource::OfficialWebsite);
+        assert_eq!(out.default.as_ref().unwrap().gpa, Decimal::ZERO);
+        assert!(out.default.as_ref().unwrap().courses.is_empty());
+        assert_eq!(out.all.gpa, dec!(4.33));
+        assert_eq!(out.all.courses.len(), 1);
+    }
+
+    // ---------- 正常多门课：GPA 与 round_2decimal(总 credit_gpa / 总 credit) 一致 ----------
+    #[test]
+    fn process_normal_courses_gpa_consistent() {
+        let courses = vec![
+            make_course("高数", "必修", "85", dec!(4), dec!(3.33)),
+            make_course("英语", "必修", "78", dec!(2), dec!(2.67)),
+        ];
+        let out = process_scraped_course_results(&courses, ResultSource::OfficialWebsite);
+        let total_cg = dec!(4) * dec!(3.33) + dec!(2) * dec!(2.67);
+        let total_c = dec!(6);
+        let expected = round_2decimal(total_cg / total_c);
+        assert_eq!(out.default.as_ref().unwrap().gpa, expected);
+        assert_eq!(out.all.gpa, expected);
+        assert_eq!(out.default.as_ref().unwrap().courses.len(), 2);
+        assert_eq!(out.all.courses.len(), 2);
+    }
+
+    // ---------- 混合课程：Default 与 All 结果差异 ----------
+    #[test]
+    fn process_mixed_default_vs_all() {
+        let courses = vec![
+            make_course("高数", "必修", "85", dec!(4), dec!(3.33)),
+            make_course("体育", "必修", "90", dec!(1), dec!(4.33)),
+        ];
+        let out = process_scraped_course_results(&courses, ResultSource::OfficialWebsite);
+        assert_eq!(out.default.as_ref().unwrap().courses.len(), 1);
+        assert_eq!(out.all.courses.len(), 2);
+        assert_ne!(out.default.as_ref().unwrap().gpa, out.all.gpa);
+        assert_eq!(out.default.as_ref().unwrap().gpa, dec!(3.33));
+        let all_cg = dec!(4) * dec!(3.33) + dec!(1) * dec!(4.33);
+        assert_eq!(out.all.gpa, round_2decimal(all_cg / dec!(5)));
+    }
 }

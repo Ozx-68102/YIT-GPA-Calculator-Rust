@@ -1,20 +1,23 @@
+# OpenSpec 项目配置 - YIT-GPA-Calculator-Rust
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# ---------- context：注入到所有 artifact 的项目背景 ----------
+# 分层、错误、Decimal、排除规则、命名、Git 等细节见 _bmad-output/project-context.md，此处仅保留最小引用与 OpenSpec 特有约束。
+context: |
+  项目：燕京理工学院 GPA 查询助手 (YIT-GPA-Calculator-Rust)。
+  技术栈：Rust + Axum + Tera，本地 Web + 单 exe 发布。
+  实现前必读：{project-root}/_bmad-output/project-context.md。
+  OpenSpec 特有约束：proposal/design/tasks 的 rules 均以 project-context 为权威；生成或实现前须按该文件中的分层、错误、数值与提交规范执行。
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+# ---------- rules：按 artifact 类型约束生成内容 ----------
+# 依据：project-context.md 分层与错误约定、git-commit.mdc 提交规范、README 注意事项
+rules:
+  proposal:
+    - 明确改动影响哪些层（router/handler/business/scraping/models）及是否新增路由或错误变体。
+    - 若涉及教务网络交互、代理或数据格式，需在“注意事项”中说明与 README 中现有警告的关系（如教务系统变更、代理导致请求失败等）。
+  design:
+    - 列出将修改的模块与文件路径（如 src/handler.rs、src/business.rs）；涉及错误时写明在 models 中新增的变体及在 WebError IntoResponse 中的 HTTP 映射。
+    - GPA/绩点/学分相关逻辑必须使用 Decimal 与 dec!；课程排除只通过 business 中已有常量或在其内扩展，不散落他处。
+  tasks:
+    - 每个任务对应可单独验证的代码或行为变更，任务粒度便于拆成“单次提交同一类别、不超过 3 个问题”的 commit。
+    - 实现时遵守 project-context 的分层与错误边界；新增 handler 路由时在 router 注册，新增错误时在 models 与 IntoResponse 同步更新。
