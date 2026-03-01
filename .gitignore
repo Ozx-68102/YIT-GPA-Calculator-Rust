@@ -16,7 +16,7 @@ claude_code.log
 # ========================================
 _bmad/.cache/
 _bmad/logs/
-_bmad_output/.temp/
+_bmad-output/.temp/
 openspec/.cache/
 openspec/drafts/
 *.openspec.log
