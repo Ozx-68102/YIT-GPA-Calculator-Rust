@@ -12,7 +12,6 @@ dependencies = [
  "calamine",
  "chrono",
  "fake_user_agent",
- "lazy_static",
  "mime_guess",
  "rand 0.10.0",
  "reqwest",

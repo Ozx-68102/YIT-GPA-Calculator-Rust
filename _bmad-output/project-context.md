@@ -34,8 +34,8 @@ _以下版本均来自项目根目录 `Cargo.toml`，生成时已按文件内容
 - **序列化**：serde `1.0.228`（features: `["derive"]`）、serde_json `1.0.149`、serde_urlencoded `0.7.1`。
 - **数值与业务**：rust_decimal `1.40.0`（features: `["serde", "std"]`）、rust_decimal_macros `1.40.0`。
 - **错误与工具**：anyhow `1.0.102`、thiserror `2.0.18`。
-- **其他**：chrono `0.4.44`、rand `0.10.0`、calamine `0.33.0`、webbrowser `1.1.0`、fake_user_agent `0.2.3`、lazy_static
-  `1.5.0`、mime_guess `2.0.5`。
+- **其他**：chrono `0.4.44`、rand `0.10.0`、calamine `0.33.0`、webbrowser `1.1.0`、fake_user_agent `0.2.3`、
+  mime_guess `2.0.5`。
 
 ---
 
@@ -62,6 +62,18 @@ _以下版本均来自项目根目录 `Cargo.toml`，生成时已按文件内容
 - **scraping**（`src/scraping.rs`）：教务网请求、登录、成绩抓取，返回 `Result<..., WebScrapingError>` 或 `anyhow::Result`。
 - **models**（`src/models.rs`）：数据结构（如 `Course`）与所有领域错误类型。内部/仅本 crate 使用的模块以 `_` 前缀命名（如
   `_url`）。
+
+### URL 构建与拼接（硬性规定）
+
+- **必须使用 `url` crate**：凡涉及 URL 的拼接、路径追加、基址+路径组合等，一律使用 `Cargo.toml` 中的 `url` 依赖（rust-url，如
+  `url::Url`、`path_segments_mut()`、`join()` 等 API）来构建，不得手写完整 URL 字面量字符串再转换。
+- **唯一例外**：仅允许在 `src/_url.rs` 中、为得到 `Url::parse(...)` 的输入而用 `format!("{}://{}/", scheme, host)` 等形式拼出
+  **基址字符串**的这一处（即构造 base URL 的那一行）。除此以外，项目内任何其他地方均不得用“先拼字符串再
+  parse/from_str”或“format! 整段 URL”等方式构建 URL。
+- **禁止的写法**：除上述例外外，不接受“先写整段 URL 字符串再 `parse`/`from_str`”“用 `format!` 拼整串 URL”“在代码里直接写死路径字符串再拼到
+  base”等任何不通过 `url` 做路径/查询构造的方式。此类写法易在维护时写错路径、漏斜杠或难以重构，一律禁止。
+- **既有约定**：项目中已有通过 `_url` 模块封装 `Url` 与 `push` 等逻辑的用法，新增或修改 URL 相关逻辑时须沿用同一思路，始终用
+  `url` 类型与 API 完成拼接。
 
 ### 数值与业务常量
 

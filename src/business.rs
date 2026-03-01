@@ -1,11 +1,13 @@
 // 业务逻辑层 - 处理获取到的数据
-use crate::models::Course;
+use crate::models::{Course, FileError};
+use calamine::{Reader, Xlsx};
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::Local;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use std::io::Cursor;
 
 pub const PERMANENT_IGNORED_COURSES: &[&str] = &["入学教育"];
 
@@ -104,6 +106,46 @@ pub fn score_trans_grade(score: &str) -> Option<Decimal> {
 /// 保留小数点后2位
 pub fn round_2decimal(d: Decimal) -> Decimal {
     d.round_dp(2)
+}
+
+/// 从 Excel 模板字节流解析课程列表（Sheet1、跳过前 3 行、列 0/1/2 为课程名/学分/成绩）
+pub fn parse_courses_from_excel_template(bytes: &[u8]) -> Result<Vec<Course>, FileError> {
+    let reader = Cursor::new(bytes);
+    let mut worksheet: Xlsx<_> = Xlsx::new(reader).map_err(|e| FileError::OpenError(e.to_string()))?;
+
+    let mut courses: Vec<Course> = Vec::new();
+
+    if let Ok(range) = worksheet.worksheet_range("Sheet1") {
+        for row in range.rows().skip(3) {
+            let name = row.get(0).map(|c| c.to_string()).unwrap_or_default().trim().to_string();
+            let credit_str = row.get(1).map(|c| c.to_string()).unwrap_or_default().trim().to_string();
+            let score_str = row.get(2).map(|c| c.to_string()).unwrap_or_default().trim().to_string();
+
+            if name.is_empty() || credit_str.is_empty() || score_str.is_empty() {
+                continue;
+            }
+
+            if let Ok(credit) = credit_str.parse::<Decimal>() {
+                if let Some(grade) = score_trans_grade(&score_str) {
+                    let credit_gpa = round_2decimal(grade * credit);
+                    courses.push(Course {
+                        name,
+                        attr: "".to_string(),
+                        score: score_str,
+                        credit,
+                        grade,
+                        credit_gpa,
+                    });
+                }
+            }
+        }
+    }
+
+    if courses.is_empty() {
+        return Err(FileError::NoValidDataFound);
+    }
+
+    Ok(courses)
 }
 
 /// 提供当前时间

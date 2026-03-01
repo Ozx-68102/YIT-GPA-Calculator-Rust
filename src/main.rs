@@ -61,7 +61,8 @@ async fn main() -> Result<()> {
         .layer(middleware::from_fn(move |mut req: Request, next: Next| {
             req.extensions_mut().insert(key.clone());
             async move { next.run(req).await }
-        })).layer(session_layer)
+        }))
+        .layer(session_layer)
         .layer(CookieManagerLayer::new());
 
     // 绑定地址到 TCP 监听器
