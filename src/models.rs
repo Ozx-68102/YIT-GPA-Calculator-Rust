@@ -111,3 +111,51 @@ impl IntoResponse for WebError {
         (status, message).into_response()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+
+    #[test]
+    fn web_error_login_failed_maps_to_401() {
+        let err = WebError::WebScrapingError(WebScrapingError::LoginFailed);
+        let resp = err.into_response();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn web_error_file_error_maps_to_400() {
+        let err = WebError::FileError(FileError::OpenError("test".into()));
+        let resp = err.into_response();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn web_error_file_error_no_valid_data_maps_to_400() {
+        let err = WebError::FileError(FileError::NoValidDataFound);
+        let resp = err.into_response();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn web_error_template_error_maps_to_500() {
+        let err = WebError::TemplateError("test".into());
+        let resp = err.into_response();
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn web_error_internal_error_maps_to_500() {
+        let err = WebError::InternalError("test".into());
+        let resp = err.into_response();
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn web_error_web_scraping_parse_error_maps_to_500() {
+        let err = WebError::WebScrapingError(WebScrapingError::ParseError("test".into()));
+        let resp = err.into_response();
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+}
