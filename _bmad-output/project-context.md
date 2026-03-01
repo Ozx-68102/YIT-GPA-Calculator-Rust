@@ -26,7 +26,8 @@ _本文件包含 AI 代理在本项目中实现代码时必须遵循的关键规
 _以下版本均来自项目根目录 `Cargo.toml`，生成时已按文件内容核对。_
 
 - **Rust**：edition = `"2024"`。Rust 2024 Edition 于 Rust 1.85.0（2025-02-20）稳定，工具链已支持；本项目使用 2024 edition 正确。
-- **Web / 运行时**：axum `0.8.4`（features: `["multipart"]`）、tokio `1.46.1`（features: `["full"]`）。
+- **包**：binary `yit-gpa-tool`（`src/main.rs`）、lib `yit_gpa_tool`（库目标，snake_case）。
+- **Web / 运行时**：axum `0.8.8`（features: `["multipart"]`）、tokio `1.49.0`（features: `["full"]`）。
 - **模板与资源**：tera `1.20.1`、rust-embed `8.11.0`（嵌入 `templates/` 与 `assets/`）。
 - **会话与 Cookie**：tower-sessions `0.15.0`（features: `["memory-store"]`）、tower-cookies `0.11.0`（features:
   `["signed"]`）。
@@ -34,8 +35,9 @@ _以下版本均来自项目根目录 `Cargo.toml`，生成时已按文件内容
 - **序列化**：serde `1.0.228`（features: `["derive"]`）、serde_json `1.0.149`、serde_urlencoded `0.7.1`。
 - **数值与业务**：rust_decimal `1.40.0`（features: `["serde", "std"]`）、rust_decimal_macros `1.40.0`。
 - **错误与工具**：anyhow `1.0.102`、thiserror `2.0.18`。
-- **其他**：chrono `0.4.44`、rand `0.10.0`、calamine `0.33.0`、webbrowser `1.1.0`、fake_user_agent `0.2.3`、
-  mime_guess `2.0.5`。
+- **其他**：chrono `0.4.44`、rand `0.10.0`、calamine `0.33.0`、webbrowser `1.1.0`、fake_user_agent `0.2.3`、mime_guess
+  `2.0.5`。
+- **开发依赖**：tower `0.5.3`（集成测试中 `ServiceExt::oneshot` 等所需）。
 
 ---
 
@@ -102,5 +104,8 @@ _以下版本均来自项目根目录 `Cargo.toml`，生成时已按文件内容
 
 ## 文档与后续更新
 
-- 依赖版本或 Rust/toolchain 变更时，应同步更新本文档中的“Technology Stack & Versions”，并再次核实时效性与官方文档。
+- **技术栈同步（硬性）**：凡修改了根目录 `Cargo.toml`（增删依赖、改版本、改 features、增删 lib/bin 等），必须由 AI
+  代理同步更新本文档的「Technology Stack & Versions」一节，使项目上下文与当前技术栈一致。用户可在变更 `Cargo.toml` 后要求“更新
+  project context / 更新技术栈”等，由 AI 完成本节更新。
+- 依赖版本或 Rust/toolchain 变更时，除更新“Technology Stack & Versions”外，应再次核实时效性与官方文档。
 - 新增错误类型、路由或业务常量时，建议在本文档的“Critical Implementation Rules”中补充对应规则，便于 AI 与人工保持一致。
