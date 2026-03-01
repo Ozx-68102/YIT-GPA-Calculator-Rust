@@ -1,42 +1,23 @@
-use crate::{
-    _url::HTTP_SCHEME,
-    business::{format_log_msg, print_info},
-};
-
 use anyhow::{Context, Result};
 use axum::{
     extract::Request,
     middleware::{self, Next},
     serve,
-    Extension
+    Extension,
 };
 use rand::RngExt;
-use rust_embed::RustEmbed;
 use std::net::SocketAddr;
 use tera::Tera;
 use tokio::{net::TcpListener, sync::broadcast};
 use tower_cookies::{CookieManagerLayer, Key};
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 use webbrowser;
-
-mod models;
-mod business;
-mod scraping;
-mod handler;
-mod router;
-mod _url;
-
-// 使用 RustEmbed 宏来嵌入整个 templates 文件夹
-// folder 路径是相对于 Cargo.toml 文件的
-// 专门管 UTF-8 文本文档
-#[derive(RustEmbed)]
-#[folder = "templates/"]
-pub struct TemplateAsset;   // 虚拟结构体, 用于持有嵌入的模板文件
-
-// 专门管二进制文档, 比如 Excel
-#[derive(RustEmbed)]
-#[folder = "assets/"]
-pub struct BinaryAsset; // 持有二进制模板文件
+use yit_gpa_tool::{
+    _url::HTTP_SCHEME,
+    business::{format_log_msg, print_info},
+    router,
+    TemplateAsset,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -80,7 +61,8 @@ async fn main() -> Result<()> {
         .layer(middleware::from_fn(move |mut req: Request, next: Next| {
             req.extensions_mut().insert(key.clone());
             async move { next.run(req).await }
-        })).layer(session_layer)
+        }))
+        .layer(session_layer)
         .layer(CookieManagerLayer::new());
 
     // 绑定地址到 TCP 监听器

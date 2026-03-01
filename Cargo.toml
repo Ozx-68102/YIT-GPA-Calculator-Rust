@@ -1,7 +1,11 @@
 [package]
 name = "YIT-GPA-Calculator-Rust"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
+
+# 库目标使用 snake_case 名称，满足 Rust 命名规范
+[lib]
+name = "yit_gpa_tool"
 
 # 发布模式的编译配置
 [profile.release]
@@ -16,8 +20,8 @@ path = "src/main.rs"
 
 [dependencies]
 # 基础依赖
-axum = { version = "0.8.4", features = ["multipart"] }
-tokio = {version = "1.46.1", features = ["full"]}  # 异步运行时
+axum = { version = "0.8.8", features = ["multipart"] }
+tokio = { version = "1.49.0", features = ["full"] }  # 异步运行时
 tera = "1.20.1"   # 模板引擎
 rust-embed = "8.11.0"    # 打包 exe
 chrono = "0.4.44"   # 时间戳
@@ -47,6 +51,8 @@ webbrowser = "1.1.0"   # 自动打开浏览器
 anyhow = "1.0.102"   # 简化错误处理
 thiserror = "2.0.18"    # 自定义错误
 fake_user_agent = "0.2.3"   # 随机 UA
-lazy_static = "1.5.0"   # 将静态变量延时初始化
 mime_guess = "2.0.5"    # 自动返回正确的 Content-Type
 url = "2.5.8"   # 格式化 URL
+
+[dev-dependencies]
+tower = "0.5.3"   # 集成测试中 ServiceExt::oneshot 所需

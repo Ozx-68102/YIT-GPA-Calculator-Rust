@@ -1,12 +1,12 @@
 // 路由控制器
 use crate::{
     business::{
-        print_error, print_info, process_scraped_course_results, round_2decimal, score_trans_grade,
-        ProcessedGPAResults, ResultSource, ATTR_EXCLUSIONS,
-        EXCLUDED_COURSES_KEYWORD, PERMANENT_IGNORED_COURSES,
+        parse_courses_from_excel_template, print_error, print_info, process_scraped_course_results,
+        ProcessedGPAResults, ResultSource, ATTR_EXCLUSIONS, EXCLUDED_COURSES_KEYWORD,
+        PERMANENT_IGNORED_COURSES,
     },
     models::{Course, FileError, WebError},
-    scraping::{AAOWebsite, USER_AGENT},
+    scraping::AAOWebsite,
     BinaryAsset, TemplateAsset
 };
 
@@ -17,11 +17,8 @@ use axum::{
     Extension,
     Json
 };
-use calamine::{Reader, Xlsx};
-use fake_user_agent::get_rua;
 use mime_guess;
 use rust_decimal::Decimal;
-use std::io::Cursor;
 
 // 反序列化解析表单数据, 类似隔壁的 request.form
 use serde::Deserialize;
@@ -138,42 +135,19 @@ pub async fn score_from_official(session: Session, Form(form): Form<LoginForm>) 
 
 // 负责从文件中获取数据
 pub async fn score_from_file(session: Session, mut multipart: Multipart) -> Result<Json<serde_json::Value>, WebError> {
-    let mut courses: Vec<Course> = Vec::new();
+    let mut file_bytes: Option<Vec<u8>> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
-        if field.name() == Some("gpa_file") {   // 和前端 formData 的键名一致
-            let data = field.bytes().await.map_err(|e| FileError::OpenError(e.to_string()))?;
-            let reader = Cursor::new(data);
-            let mut worksheet: Xlsx<_> = Xlsx::new(reader).map_err(|e| FileError::OpenError(e.to_string()))?;
-
-            if let Ok(range) = worksheet.worksheet_range("Sheet1") {
-                for row in range.rows().skip(3) {
-                    let name = row.get(0).map(|c| c.to_string()).unwrap_or_default().trim().to_string();
-                    let credit_str = row.get(1).map(|c| c.to_string()).unwrap_or_default().trim().to_string();
-                    let score_str = row.get(2).map(|c| c.to_string()).unwrap_or_default().trim().to_string();
-
-                    if name.is_empty() || credit_str.is_empty() || score_str.is_empty() { continue }
-                    if let Ok(credit) = credit_str.parse::<Decimal>() {
-                        if let Some(grade) = score_trans_grade(&score_str) {
-                            let credit_gpa = round_2decimal(grade * credit);
-                            courses.push(Course {
-                                name,
-                                attr: "".to_string(),
-                                score: score_str,
-                                credit,
-                                grade,
-                                credit_gpa,
-                            });
-                        }
-                    }
-                }
+        if field.name() == Some("gpa_file") {
+            if let Ok(data) = field.bytes().await {
+                file_bytes = Some(data.to_vec());
+                break;
             }
         }
     }
 
-    if courses.is_empty() {
-        return Err(FileError::NoValidDataFound.into());
-    }
+    let bytes = file_bytes.ok_or(FileError::NoValidDataFound)?;
+    let courses = parse_courses_from_excel_template(&bytes)?;
 
     print_info(&format!("从 Excel 文件中成功解析{}门课程", courses.len()));
 
@@ -290,22 +264,6 @@ pub async fn logout(session: Session) -> Result<Json<serde_json::Value>, WebErro
     session.delete().await.map_err(|e| WebError::InternalError(e.to_string()))?;
 
     print_info("用户已销毁当前会话");
-
-    // 创建变量遮蔽来确保锁能被尽快释放
-    {
-        // 获取互斥锁
-        let mut user_agent_guard = USER_AGENT.lock().unwrap();
-
-        // 生成新 UA
-        let new_user_agent = get_rua().to_string();
-
-        // 使用星号(*)解引用修改在锁保护下的数据
-        *user_agent_guard = new_user_agent.clone();
-
-        #[cfg(debug_assertions)]
-        print_info(&format!("UA 已被刷新: {}", new_user_agent.clone()));
-    }
-    // 超出遮蔽区域, 锁被释放
 
     Ok(Json(json!({"success": true})))
 }

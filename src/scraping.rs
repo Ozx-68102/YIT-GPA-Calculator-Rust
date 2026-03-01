@@ -7,17 +7,11 @@ use crate::{
 
 use anyhow::Result;
 use fake_user_agent::get_rua;
-use lazy_static::lazy_static;
 use reqwest::{header::{HeaderMap, HeaderValue}, Client, Response};
 use rust_decimal::Decimal;
 use scraper::{selectable::Selectable, ElementRef, Html, Selector};
 use serde_urlencoded;
-use std::{collections::HashMap, sync::Mutex};
-
-// 每次程序启动都随机加载一个 UA, 由于后续需要更改此内容, 故此处使用互斥锁
-lazy_static! {
-    pub static ref USER_AGENT: Mutex<String> = Mutex::new(get_rua().to_string());
-}
+use std::collections::HashMap;
 
 // 教务处网站结构体
 pub struct AAOWebsite {
@@ -34,24 +28,15 @@ impl AAOWebsite {
         print_info("正在初始化客户端实例");
 
         // 创建客户端实例, `?`表示失败就返回错误, 类似隔壁的 raise
-        // 需要启动 cookie 储存
-        let client = {
-            let user_agent_guard = USER_AGENT.lock().unwrap_or_else(|e| {
-                #[cfg(debug_assertions)]
-                print_error(&format!("致命错误 - USER_AGENT Mutex 锁中毒：{}", e));
+        // 需要启动 cookie 储存，每次创建实例时随机生成 UA
+        let user_agent = get_rua().to_string();
+        #[cfg(debug_assertions)]
+        print_info(&format!("UA 已被设置为: {}", user_agent));
 
-                // 出现错误中断当前线程退出该方法
-                panic!("致命错误 - 无法锁定 USER_AGENT 的 Mutex 互斥锁");
-            });
-
-            #[cfg(debug_assertions)]
-            print_info(&format!("UA 已被设置为: {}", user_agent_guard.clone()));
-
-            Client::builder()
-                .user_agent(user_agent_guard.clone())    // 设置 UA
+        let client = Client::builder()
+            .user_agent(user_agent)
                 .cookie_store(true) // 自动处理 Cookie
-                .build()?
-        };
+            .build()?;
 
         // cfg(debug_assertions) 表示下方紧贴着的内容只在 dev 模式下出现
         #[cfg(debug_assertions)]

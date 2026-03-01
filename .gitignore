@@ -1,2 +1,26 @@
-/target
-/.idea
+# ========================================
+# Execution Plane: AI IDEs & Assistants (Strictly Ignored)
+# ========================================
+.cursor/
+.trae/
+.windsurf/
+.idea/
+.vscode/
+.codex/
+.antigravity/
+*.code-workspace
+claude_code.log
+
+# ========================================
+# Control Plane: BMAD & OpenSpec Caches (Strictly Ignored)
+# ========================================
+_bmad/.cache/
+_bmad/logs/
+_bmad-output/.temp/
+openspec/.cache/
+openspec/drafts/
+*.openspec.log
+.ospec-state.json
+*.story-lock
+
+target/
